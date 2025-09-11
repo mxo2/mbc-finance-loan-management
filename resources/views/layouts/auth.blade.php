@@ -59,6 +59,45 @@
 
 
     <link href="{{ asset('css/custom.css') }} " rel="stylesheet">
+    <link href="{{ asset('assets/css/blue-theme-override.css') }}" rel="stylesheet">
+    <style>
+        .top-left-logo {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            max-width: 150px;
+        }
+        .top-left-logo img {
+            max-height: 60px;
+            width: auto;
+        }
+        .auth-wrapper.v2 {
+            display: flex;
+            min-height: 100vh;
+        }
+        .auth-form {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 2rem;
+            padding-top: 100px; /* Add space for top logo */
+        }
+        @media (max-width: 768px) {
+            .top-left-logo {
+                top: 10px;
+                left: 10px;
+                max-width: 120px;
+            }
+            .top-left-logo img {
+                max-height: 50px;
+            }
+            .auth-form {
+                padding-top: 80px;
+            }
+        }
+    </style>
 </head>
 
 <body
@@ -70,14 +109,14 @@
             <div class="loader-fill"></div>
         </div>
     </div>
+    <!-- Top left logo -->
+    <div class="top-left-logo">
+        <img src="{{ asset('assets/images/logo_mbc.png') }}" alt="MBC Finance Logo" class="img-fluid" />
+    </div>
+    
     <div class="auth-main">
         <div class="auth-wrapper v2">
             <div class="auth-form">
-                <div class="logo">
-                    <a class="navbar-brand landing-logo" href="{{ route('home') }}"><img
-                            src="{{ !empty($settings['logo']) ? fetch_file($settings['logo'],'upload/logo/') : $default_logo }}" alt="image"
-                            class="img-fluid brand-logo" /></a>
-                </div>
                 @yield('content')
             </div>
 
@@ -106,7 +145,7 @@
                                 @endforeach
                             </div>
                         </div>
-                       <img src="{{ asset(Storage::url($authPage->image)) }}" alt="images"
+                       <img src="{{ asset($authPage->image) }}" alt="MBC Finance Banner"
                             class="img-fluid mt-3 w-75" />
                     </div>
                 </div>

@@ -21,7 +21,9 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FAQController;
 use App\Http\Controllers\HomePageController;
 use App\Http\Controllers\LoanController;
+use App\Http\Controllers\LoanCycleController;
 use App\Http\Controllers\LoanTypeController;
+use App\Http\Controllers\ModernLandingController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OTPController;
 use App\Http\Controllers\PageController;
@@ -44,9 +46,19 @@ use App\Models\User;
 
 require __DIR__ . '/auth.php';
 
-Route::get('/', [HomeController::class, 'index'])->middleware(
-    [
+// Redirect homepage to React frontend
+Route::get('/', function () {
+    return redirect('http://localhost:3000');
+});
 
+Route::post('/apply', [App\Http\Controllers\FrontPageController::class, 'applyLoan'])->name('front.apply')->middleware(
+    [
+        'XSS',
+    ]
+);
+
+Route::post('/calculate-emi', [App\Http\Controllers\FrontPageController::class, 'calculateEMI'])->name('front.calculate-emi')->middleware(
+    [
         'XSS',
     ]
 );
@@ -74,7 +86,7 @@ Route::resource('users', UserController::class)->middleware(
 
 Route::get('setauth/{id}',  function ($id) {
     $user = User::find($id);
-    \Auth::login($user);
+    \Illuminate\Support\Facades\Auth::login($user);
     return redirect()->route('home');
 });
 
@@ -334,11 +346,21 @@ Route::group(
     ],
     function () {
         Route::resource('loan', LoanController::class);
+        Route::get('loan/apply/{loanTypeId}', [LoanController::class, 'apply'])->name('loan.apply');
+        Route::get('loan/{id}/approve', [LoanController::class, 'approve'])->name('loan.approve');
+        Route::put('loan/{id}/approve', [LoanController::class, 'updateApproval'])->name('loan.updateApproval');
         Route::get('loan/{id}/reminder', [LoanController::class, 'paymentRemind'])->name('payment.reminder');
         Route::post('loan/{id}/reminder', [LoanController::class, 'paymentRemindData'])->name('payment.sendEmail');
     }
 );
 
+//-------------------------------Loan Cycles-------------------------------------------
+Route::resource('loan-cycle', LoanCycleController::class)->middleware(
+    [
+        'auth',
+        'XSS',
+    ]
+);
 
 //-------------------------------Account Type-------------------------------------------
 Route::resource('account-type', AccountTypeController::class)->middleware(

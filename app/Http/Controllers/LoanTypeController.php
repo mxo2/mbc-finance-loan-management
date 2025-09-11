@@ -39,6 +39,8 @@ class LoanTypeController extends Controller
                     'interest_rate' => 'required',
                     'max_loan_term' => 'required',
                     'loan_term_period' => 'required',
+                    'payment_frequency' => 'required|in:daily,weekly,monthly,yearly',
+                    'payment_day' => 'required|integer|min:1|max:31',
                     'penalties' => 'required',
                 ]
             );
@@ -56,6 +58,9 @@ class LoanTypeController extends Controller
             $loanType->interest_rate = $request->interest_rate;
             $loanType->max_loan_term = $request->max_loan_term;
             $loanType->loan_term_period = $request->loan_term_period;
+            $loanType->payment_frequency = $request->payment_frequency;
+            $loanType->payment_day = $request->payment_day;
+            $loanType->auto_start_date = $request->has('auto_start_date') ? 1 : 0;
             $loanType->penalties = $request->penalties;
             $loanType->status = 1;
             $loanType->notes = $request->notes;
@@ -99,6 +104,8 @@ class LoanTypeController extends Controller
                     'interest_rate' => 'required',
                     'max_loan_term' => 'required',
                     'loan_term_period' => 'required',
+                    'payment_frequency' => 'required|in:daily,weekly,monthly,yearly',
+                    'payment_day' => 'required|integer|min:1|max:31',
                     'penalties' => 'required',
                     ]
                 );
@@ -116,6 +123,9 @@ class LoanTypeController extends Controller
                 $loanType->interest_rate = $request->interest_rate;
                 $loanType->max_loan_term = $request->max_loan_term;
                 $loanType->loan_term_period = $request->loan_term_period;
+                $loanType->payment_frequency = $request->payment_frequency;
+                $loanType->payment_day = $request->payment_day;
+                $loanType->auto_start_date = $request->has('auto_start_date') ? 1 : 0;
                 $loanType->penalties = $request->penalties;
                 $loanType->status = 1;
                 $loanType->notes = $request->notes;

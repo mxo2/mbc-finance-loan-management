@@ -20,12 +20,14 @@ class Loan extends Model
         'loan_term_period',
         'status',
         'notes',
+        'referral_code',
         'created_by',
         'parent_id',
     ];
 
     public static $status = [
         'draft' => 'Draft',
+        'pending' => 'Pending',
         'submitted' => 'Submitted',
         'under_review' => 'Under Review',
         'approved' => 'Approved',

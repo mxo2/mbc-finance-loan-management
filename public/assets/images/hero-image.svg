@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0052cc;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#ff6b35;stop-opacity:0.1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#grad1)" />
+  
+  <!-- Credit Card -->
+  <rect x="200" y="150" width="400" height="250" rx="20" fill="#0052cc" />
+  <rect x="200" y="200" width="400" height="50" fill="#003d99" />
+  <rect x="240" y="280" width="320" height="40" rx="5" fill="#ffffff" opacity="0.8" />
+  <rect x="240" y="340" width="80" height="30" rx="5" fill="#ffffff" opacity="0.8" />
+  <rect x="340" y="340" width="80" height="30" rx="5" fill="#ffffff" opacity="0.8" />
+  
+  <!-- Coins -->
+  <circle cx="150" cy="400" r="40" fill="#ff6b35" />
+  <circle cx="150" cy="400" r="30" fill="#e65c2e" />
+  <text x="150" y="410" font-family="Arial" font-size="20" fill="white" text-anchor="middle">₹</text>
+  
+  <circle cx="650" cy="200" r="30" fill="#ff6b35" />
+  <circle cx="650" cy="200" r="22" fill="#e65c2e" />
+  <text x="650" y="208" font-family="Arial" font-size="16" fill="white" text-anchor="middle">₹</text>
+  
+  <circle cx="700" cy="300" r="25" fill="#ff6b35" />
+  <circle cx="700" cy="300" r="18" fill="#e65c2e" />
+  <text x="700" y="307" font-family="Arial" font-size="14" fill="white" text-anchor="middle">₹</text>
+  
+  <!-- Document with checkmark -->
+  <rect x="100" y="200" width="80" height="100" fill="#ffffff" stroke="#cccccc" stroke-width="2" />
+  <line x1="115" y1="220" x2="165" y2="220" stroke="#cccccc" stroke-width="2" />
+  <line x1="115" y1="240" x2="165" y2="240" stroke="#cccccc" stroke-width="2" />
+  <line x1="115" y1="260" x2="165" y2="260" stroke="#cccccc" stroke-width="2" />
+  <circle cx="140" cy="280" r="15" fill="#28a745" />
+  <polyline points="130,280 138,288 150,270" fill="none" stroke="#ffffff" stroke-width="3" />
+  
+  <!-- Mobile phone -->
+  <rect x="650" y="400" width="70" height="120" rx="10" fill="#333333" />
+  <rect x="655" y="410" width="60" height="100" fill="#ffffff" />
+  <circle cx="685" cy="520" r="5" fill="#ffffff" opacity="0.5" />
+</svg>

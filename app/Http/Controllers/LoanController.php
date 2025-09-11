@@ -12,6 +12,8 @@ use App\Models\Repayment;
 use App\Models\RepaymentSchedule;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class LoanController extends Controller
 {
@@ -20,11 +22,14 @@ class LoanController extends Controller
     {
         if (\Auth::user()->can('manage loan')) {
             if (\Auth::user()->type == 'customer') {
-                $loans = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->orderBy('id', 'DESC')->get();
+                // For customers, show available loan types to apply
+                $loanTypes = LoanType::where('parent_id', parentId())->where('status', 1)->get();
+                $myLoans = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->orderBy('id', 'DESC')->get();
+                return view('loans.customer_index', compact('loanTypes', 'myLoans'));
             } else {
                 $loans = Loan::where('parent_id', parentId())->orderBy('id', 'DESC')->get();
+                return view('loans.index', compact('loans'));
             }
-            return view('loans.index', compact('loans'));
         } else {
             return redirect()->back()->with('error', __('Permission Denied.'));
         }
@@ -34,6 +39,11 @@ class LoanController extends Controller
     public function create()
     {
         if (\Auth::user()->can('create loan')) {
+            // Only admin/staff can create loans directly
+            if (\Auth::user()->type == 'customer') {
+                return redirect()->route('loan.index')->with('error', __('Customers cannot create loans directly. Please apply for available loan types.'));
+            }
+            
             $loanNumber = $this->loanNumber();
             $branch = Branch::where('parent_id', parentId())->get()->pluck('name', 'id');
             $branch->prepend(__('Select Branch'), '');
@@ -52,50 +62,257 @@ class LoanController extends Controller
         }
     }
 
+    public function apply($loanTypeId)
+    {
+        if (\Auth::user()->type != 'customer') {
+            return redirect()->back()->with('error', __('Only customers can apply for loans.'));
+        }
+
+        $loanType = LoanType::find(decrypt($loanTypeId));
+        if (!$loanType || $loanType->status != 1) {
+            return redirect()->back()->with('error', __('Invalid or inactive loan type.'));
+        }
+
+        $loanNumber = $this->loanNumber();
+        $branch = Branch::where('parent_id', parentId())->get()->pluck('name', 'id');
+        $branch->prepend(__('Select Branch'), '');
+        $documentTypes = DocumentType::where('parent_id', parentId())->get()->pluck('title', 'id');
+        $documentTypes->prepend(__('Select Document Type'), '');
+        $termPeroid = Loan::$termPeroid;
+        
+        return view('loans.apply', compact('loanNumber', 'loanType', 'branch', 'documentTypes', 'termPeroid'));
+    }
+
+    public function approve($id)
+    {
+        if (\Auth::user()->type == 'customer') {
+            return redirect()->back()->with('error', __('Only administrators can approve loans.'));
+        }
+
+        $loan = Loan::find(decrypt($id));
+        if (!$loan) {
+            return redirect()->back()->with('error', __('Loan not found.'));
+        }
+
+        $loanTypes = LoanType::where('parent_id', parentId())->get()->pluck('type', 'id');
+        $branch = Branch::where('parent_id', parentId())->get()->pluck('name', 'id');
+        $customers = User::where('parent_id', parentId())->where('type', 'customer')->get()->pluck('name', 'id');
+        $status = Loan::$status;
+        $termPeroid = Loan::$termPeroid;
+        
+        return view('loans.approve', compact('loan', 'loanTypes', 'branch', 'customers', 'status', 'termPeroid'));
+    }
+
+    public function updateApproval(Request $request, $id)
+    {
+        if (\Auth::user()->type == 'customer') {
+            return redirect()->back()->with('error', __('Only administrators can approve loans.'));
+        }
+
+        $validator = \Validator::make(
+            $request->all(),
+            [
+                'status' => 'required',
+                'amount' => 'required|numeric',
+                'loan_terms' => 'required|numeric',
+                'loan_term_period' => 'required',
+            ]
+        );
+        
+        if ($validator->fails()) {
+            $messages = $validator->getMessageBag();
+            return redirect()->back()->with('error', $messages->first());
+        }
+
+        $loan = Loan::find(decrypt($id));
+        if (!$loan) {
+            return redirect()->back()->with('error', __('Loan not found.'));
+        }
+
+        // Update loan details
+        $loan->status = $request->status;
+        $loan->amount = $request->amount;
+        $loan->loan_terms = $request->loan_terms;
+        $loan->loan_term_period = $request->loan_term_period;
+        
+        // Auto-calculate dates when loan is approved
+        if ($request->status == 'approved') {
+            $loan->loan_start_date = now()->format('Y-m-d');
+            
+            // Calculate due date based on loan terms
+            $startDate = now();
+            if ($loan->loan_term_period == 'days') {
+                $loan->loan_due_date = $startDate->addDays($loan->loan_terms)->format('Y-m-d');
+            } elseif ($loan->loan_term_period == 'weeks') {
+                $loan->loan_due_date = $startDate->addWeeks($loan->loan_terms)->format('Y-m-d');
+            } elseif ($loan->loan_term_period == 'months') {
+                $loan->loan_due_date = $startDate->addMonths($loan->loan_terms)->format('Y-m-d');
+            } elseif ($loan->loan_term_period == 'years') {
+                $loan->loan_due_date = $startDate->addYears($loan->loan_terms)->format('Y-m-d');
+            }
+        }
+        // For non-approved status, keep existing dates or set to null if not set
+        // This prevents the Jan 1, 1970 issue
+        
+        $loan->notes = $request->admin_notes;
+        $loan->save();
+
+        // Generate repayment schedules when loan is approved
+        if ($request->status == 'approved' && $loan->loan_start_date && $loan->loan_due_date) {
+            // Delete existing schedules first
+            RepaymentSchedule::where('loan_id', $loan->id)->delete();
+            
+            $installments = RepaymentSchedules($loan);
+            foreach ($installments as $key => $values) {
+                $repaymentSchedule = new RepaymentSchedule();
+                $repaymentSchedule->loan_id = $values['loan_id'];
+                $repaymentSchedule->due_date = $values['due_date'];
+                $repaymentSchedule->installment_amount = $values['installment_amount'];
+                $repaymentSchedule->interest = $values['interest'];
+                $repaymentSchedule->total_amount = $values['total_amount'];
+                $repaymentSchedule->penality = $values['penality'];
+                $repaymentSchedule->status = $values['status'];
+                $repaymentSchedule->parent_id = $values['parent_id'];
+                $repaymentSchedule->save();
+            }
+        }
+
+        $statusMessage = '';
+        if ($request->status == 'approved') {
+            $statusMessage = __('Loan application has been approved successfully.');
+        } elseif ($request->status == 'rejected') {
+            $statusMessage = __('Loan application has been rejected.');
+        } else {
+            $statusMessage = __('Loan status updated successfully.');
+        }
+
+        return redirect()->route('loan.index')->with('success', $statusMessage);
+    }
+
 
     public function store(Request $request)
     {
         if (\Auth::user()->can('create loan')) {
-            $validator = \Validator::make(
-                $request->all(),
-                [
-                    'loan_type' => 'required',
-                    'loan_start_date' => 'required',
-                    'loan_due_date' => 'required',
-                    'purpose_of_loan' => 'required',
-                    'amount' => 'required',
-                    'loan_term_period' => 'required',
-                    'loan_terms' => 'required',
-                ]
-            );
+            // Different validation rules for customers vs admins
+            if (\Auth::user()->type == 'customer') {
+                $validator = \Validator::make(
+                    $request->all(),
+                    [
+                        'loan_type' => 'required',
+                        'purpose_of_loan' => 'required',
+                        'amount' => 'required|numeric',
+                        'loan_term_period' => 'required',
+                        'loan_terms' => 'required|numeric',
+                        'referral_code' => 'required|string|min:3',
+                        'aadhaar_card_front' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+                        'aadhaar_card_back' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+                        'pan_card' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+                    ]
+                );
+            } else {
+                $validator = \Validator::make(
+                    $request->all(),
+                    [
+                        'loan_type' => 'required',
+                        'loan_start_date' => 'required',
+                        'loan_due_date' => 'required',
+                        'purpose_of_loan' => 'required',
+                        'amount' => 'required',
+                        'loan_term_period' => 'required',
+                        'loan_terms' => 'required',
+                    ]
+                );
+            }
+            
             if ($validator->fails()) {
                 $messages = $validator->getMessageBag();
                 return redirect()->back()->with('error', $messages->first());
             }
+            
             $loan = new Loan();
             $loan->loan_id = $this->loanNumber();
             $loan->loan_type = $request->loan_type;
             $loan->branch_id = $request->branch_id;
             $loan->customer = $request->customer;
+            
+            // Only set dates if provided (for admin) or leave null for customer applications
             $loan->loan_start_date = $request->loan_start_date;
             $loan->loan_due_date = $request->loan_due_date;
+            
             $loan->amount = $request->amount;
             $loan->purpose_of_loan = $request->purpose_of_loan;
             $loan->loan_terms = $request->loan_terms;
             $loan->loan_term_period = $request->loan_term_period;
-            $loan->status = 'draft';
+            $loan->status = \Auth::user()->type == 'customer' ? 'pending' : 'draft';
             $loan->notes = $request->notes;
+            $loan->referral_code = $request->referral_code;
             $loan->created_by = \Auth::user()->id;
             $loan->parent_id = parentId();
             $loan->save();
-            if ($loan) {
+            
+            // Handle mandatory documents for customer applications
+            if (\Auth::user()->type == 'customer') {
+                // Handle Aadhaar Card Front
+                if ($request->hasFile('aadhaar_card_front')) {
+                    $aadhaarFrontDocument = new LoanDocument();
+                    $aadhaarFrontDocument->loan_id = $loan->id;
+                    $aadhaarFrontDocument->document_type = 1; // Aadhar Card ID from document_types table
+                    $aadhaarFrontDocument->status = 'pending';
+                    $aadhaarFrontDocument->notes = 'Mandatory Aadhaar Card - Front Side';
+                    
+                    $uploadResult = handleFileUpload($request->file('aadhaar_card_front'), 'upload/loan_document/');
+                    if ($uploadResult['flag'] == 1) {
+                        $aadhaarFrontDocument->document = $uploadResult['filename'];
+                        $aadhaarFrontDocument->save();
+                    } else {
+                        return redirect()->back()->with('error', 'Aadhaar Card Front upload failed: ' . $uploadResult['msg']);
+                    }
+                }
+                
+                // Handle Aadhaar Card Back
+                if ($request->hasFile('aadhaar_card_back')) {
+                    $aadhaarBackDocument = new LoanDocument();
+                    $aadhaarBackDocument->loan_id = $loan->id;
+                    $aadhaarBackDocument->document_type = 1; // Aadhar Card ID from document_types table
+                    $aadhaarBackDocument->status = 'pending';
+                    $aadhaarBackDocument->notes = 'Mandatory Aadhaar Card - Back Side';
+                    
+                    $uploadResult = handleFileUpload($request->file('aadhaar_card_back'), 'upload/loan_document/');
+                    if ($uploadResult['flag'] == 1) {
+                        $aadhaarBackDocument->document = $uploadResult['filename'];
+                        $aadhaarBackDocument->save();
+                    } else {
+                        return redirect()->back()->with('error', 'Aadhaar Card Back upload failed: ' . $uploadResult['msg']);
+                    }
+                }
+                
+                // Handle PAN Card
+                if ($request->hasFile('pan_card')) {
+                    $panDocument = new LoanDocument();
+                    $panDocument->loan_id = $loan->id;
+                    $panDocument->document_type = 3; // PAN CARD ID from document_types table
+                    $panDocument->status = 'pending';
+                    $panDocument->notes = 'Mandatory PAN Card';
+                    
+                    $uploadResult = handleFileUpload($request->file('pan_card'), 'upload/loan_document/');
+                    if ($uploadResult['flag'] == 1) {
+                        $panDocument->document = $uploadResult['filename'];
+                        $panDocument->save();
+                    } else {
+                        return redirect()->back()->with('error', 'PAN Card upload failed: ' . $uploadResult['msg']);
+                    }
+                }
+            }
+            
+            // Handle additional optional documents
+            if ($loan && $request->document_type) {
                 foreach ($request->document_type as $key => $value) {
                     if ($value) {
                         $loanDocument = new LoanDocument();
                         $loanDocument->loan_id = $loan->id;
                         $loanDocument->document_type = $request->document_type[$key];
-                        $loanDocument->status = $request->document_status[$key];
-                        $loanDocument->notes = ($request->description[$key]) ? $request->description[$key] : '';
+                        $loanDocument->status = isset($request->document_status[$key]) ? $request->document_status[$key] : 'pending';
+                        $loanDocument->notes = isset($request->description[$key]) ? $request->description[$key] : '';
                         if (isset($request->document[$key])) {
                             $uploadResult = handleFileUpload($request->document[$key], 'upload/loan_document/');
                             if ($uploadResult['flag'] == 1) {
@@ -108,6 +325,10 @@ class LoanController extends Controller
                         $loanDocument->save();
                     }
                 }
+            }
+            
+            // Only generate repayment schedules if loan has start and due dates (admin created loans)
+            if ($loan->loan_start_date && $loan->loan_due_date) {
                 $installments = RepaymentSchedules($loan);
                 foreach ($installments as $key => $values) {
 
@@ -156,7 +377,6 @@ class LoanController extends Controller
 		        }
 		    }
             }
-
 
             return redirect()->route('loan.index')->with('success', __('Loan successfully created.') . '</br>' . $errorMessage);
         } else {

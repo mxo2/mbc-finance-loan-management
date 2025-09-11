@@ -1218,21 +1218,61 @@ if (!function_exists('RepaymentSchedules')) {
         $dates = [];
 
         if ($loan_type && $loan_type != 'onetime_payment') {
-            while (true) {
-
-                if ($loan->loan_term_period == 'days') {
-                    $startDate->addDay();
-                } elseif ($loan->loan_term_period == 'months') {
-                    $startDate->addMonthNoOverflow();
-                } elseif ($loan->loan_term_period == 'weeks') {
-                    $startDate->addWeek();
-                } elseif ($loan->loan_term_period == 'years') {
-                    $startDate->addYear();
+            // Use loan type's payment schedule configuration
+            $loanTypeModel = $loan->LoanType;
+            
+            if ($loanTypeModel && $loanTypeModel->payment_frequency) {
+                // Use loan type payment schedule configuration
+                $currentDate = $startDate->copy();
+                $installmentCount = 0;
+                
+                while ($installmentCount < $loan->loan_terms && $currentDate->lessThanOrEqualTo($endDate)) {
+                    if ($loanTypeModel->payment_frequency == 'monthly') {
+                        // Set to specific day of month
+                        $currentDate->day($loanTypeModel->payment_day);
+                        if ($currentDate->greaterThan($startDate)) {
+                            $dates[] = $currentDate->copy()->format('Y-m-d');
+                            $installmentCount++;
+                        }
+                        $currentDate->addMonth();
+                    } elseif ($loanTypeModel->payment_frequency == 'weekly') {
+                        // Set to specific day of week (1=Monday, 7=Sunday)
+                        $currentDate->next($loanTypeModel->payment_day);
+                        if ($currentDate->greaterThan($startDate) && $currentDate->lessThanOrEqualTo($endDate)) {
+                            $dates[] = $currentDate->copy()->format('Y-m-d');
+                            $installmentCount++;
+                        }
+                    } elseif ($loanTypeModel->payment_frequency == 'daily') {
+                        $currentDate->addDays($loanTypeModel->payment_day);
+                        if ($currentDate->greaterThan($startDate) && $currentDate->lessThanOrEqualTo($endDate)) {
+                            $dates[] = $currentDate->copy()->format('Y-m-d');
+                            $installmentCount++;
+                        }
+                    } elseif ($loanTypeModel->payment_frequency == 'yearly') {
+                        $currentDate->addYear();
+                        if ($currentDate->greaterThan($startDate) && $currentDate->lessThanOrEqualTo($endDate)) {
+                            $dates[] = $currentDate->copy()->format('Y-m-d');
+                            $installmentCount++;
+                        }
+                    }
                 }
+            } else {
+                // Fallback to original logic if no payment schedule is configured
+                while (true) {
+                    if ($loan->loan_term_period == 'days') {
+                        $startDate->addDay();
+                    } elseif ($loan->loan_term_period == 'months') {
+                        $startDate->addMonthNoOverflow();
+                    } elseif ($loan->loan_term_period == 'weeks') {
+                        $startDate->addWeek();
+                    } elseif ($loan->loan_term_period == 'years') {
+                        $startDate->addYear();
+                    }
 
-                if ($startDate->greaterThan($endDate)) break;
+                    if ($startDate->greaterThan($endDate)) break;
 
-                $dates[] = $startDate->copy()->format('Y-m-d');
+                    $dates[] = $startDate->copy()->format('Y-m-d');
+                }
             }
         }
 

@@ -21,7 +21,7 @@ class RepaymentController extends Controller
     {
         if (\Auth::user()->can('manage repayment')) {
             if (\Auth::user()->type == 'customer') {
-                $loans = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->get()->pluck('id');
+                $loans = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->where('status', 'approved')->get()->pluck('id');
                 $repayments = Repayment::where('parent_id', parentId())->whereIn('loan_id', $loans)->orderBy('payment_date', 'asc')->get();
             } else {
                 $repayments = Repayment::where('parent_id', parentId())->orderBy('payment_date', 'asc')->get();
@@ -36,10 +36,10 @@ class RepaymentController extends Controller
         if (\Auth::user()->can('manage repayment')) {
 
             if (\Auth::user()->type == 'customer') {
-                $loans = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->get()->mapWithKeys(function ($loan) {
+                $loans = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->where('status', 'approved')->get()->mapWithKeys(function ($loan) {
                     return [$loan->id => loanPrefix() . $loan->loan_id];
                 })->prepend(__('Select Loan'), '')->toArray();
-                $loan = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->get()->pluck('id');
+                $loan = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->where('status', 'approved')->get()->pluck('id');
                 $schedules = RepaymentSchedule::where('parent_id', parentId())->whereIn('loan_id', $loan)->orderBy('due_date', 'asc')->get();
             } else {
                 $loans = Loan::where('parent_id', parentId())->get()->mapWithKeys(function ($loan) {
@@ -319,7 +319,7 @@ class RepaymentController extends Controller
         $endDate = '';
 
         if (\Auth::user()->type == 'customer') {
-            $loans = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->get()->mapWithKeys(function ($loan) {
+            $loans = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->where('status', 'approved')->get()->mapWithKeys(function ($loan) {
                 return [$loan->id => loanPrefix() . $loan->loan_id];
             })->prepend(__('Select Loan'), '')->toArray();
         } else {
@@ -342,7 +342,7 @@ class RepaymentController extends Controller
             $schedule->whereBetween('due_date', [$startDate, $endDate]);
         }
         if (\Auth::user()->type == 'customer') {
-            $loan_id = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->get()->pluck('id');
+            $loan_id = Loan::where('parent_id', parentId())->where('customer', \Auth::user()->id)->where('status', 'approved')->get()->pluck('id');
             // $schedule = RepaymentSchedule::where('parent_id', parentId());
 
             $schedules = $schedule->whereIn('loan_id', $loan_id)->orderBy('due_date', 'asc')->get();

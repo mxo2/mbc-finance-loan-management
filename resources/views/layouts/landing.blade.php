@@ -59,6 +59,7 @@
     @endif
     <link rel="stylesheet" href="{{ asset('assets/css/landing.css') }}" />
     <link href="{{ asset('css/custom.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/blue-theme-override.css') }}" rel="stylesheet">
 </head>
 
 

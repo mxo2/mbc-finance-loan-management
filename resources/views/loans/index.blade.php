@@ -48,6 +48,7 @@
                                     <th>{{ __('Start Date') }}</th>
                                     <th>{{ __('End Date') }}</th>
                                     <th>{{ __('Amount') }}</th>
+                                    <th>{{ __('Referral Code') }}</th>
                                     <th>{{ __('Status') }}</th>
                                     @if (\Auth::user()->type == 'owner')
                                         <th>{{ __('Created By') }}</th>
@@ -67,6 +68,7 @@
                                         <td>{{ dateFormat($loan->loan_start_date) }} </td>
                                         <td>{{ dateFormat($loan->loan_due_date) }} </td>
                                         <td>{{ priceFormat($loan->amount) }} </td>
+                                        <td>{{ $loan->referral_code ?? '-' }} </td>
                                         <td>
                                             @if ($loan->status == 'draft')
                                                 <span
@@ -95,21 +97,31 @@
                                             <td>
                                                 <div class="cart-action">
                                                     {!! Form::open(['method' => 'DELETE', 'route' => ['loan.destroy', encrypt($loan->id)]]) !!}
+                                                    
                                                     @if (Gate::check('show loan'))
                                                         <a class="text-warning" data-bs-toggle="tooltip"
                                                             data-bs-original-title="{{ __('Show') }}"
                                                             href="{{ route('loan.show', encrypt($loan->id)) }}"> <i
                                                                 data-feather="eye"></i></a>
                                                     @endif
+                                                    
+                                                    @if (\Auth::user()->type != 'customer' && in_array($loan->status, ['pending', 'submitted', 'under_review']))
+                                                        <a class="text-primary" data-bs-toggle="tooltip"
+                                                            data-bs-original-title="{{ __('Approve/Review') }}"
+                                                            href="{{ route('loan.approve', encrypt($loan->id)) }}"> <i
+                                                                data-feather="check-circle"></i></a>
+                                                    @endif
+                                                    
                                                     @if (Gate::check('edit loan'))
                                                         <a class="text-success" data-bs-toggle="tooltip"
                                                             data-bs-original-title="{{ __('Edit') }}"
                                                             href="{{ route('loan.edit', encrypt($loan->id)) }}"> <i
                                                                 data-feather="edit"></i></a>
                                                     @endif
+                                                    
                                                     @if (Gate::check('delete loan'))
                                                         <a class=" text-danger confirm_dialog" data-bs-toggle="tooltip"
-                                                            data-bs-original-title="{{ __('Detete') }}" href="#"> <i
+                                                            data-bs-original-title="{{ __('Delete') }}" href="#"> <i
                                                                 data-feather="trash-2"></i></a>
                                                     @endif
                                                     {!! Form::close() !!}

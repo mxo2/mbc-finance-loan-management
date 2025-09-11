@@ -19,8 +19,8 @@
             <div class="row">
                 <div class="d-flex justify-content-center">
                     <div class="auth-header">
-                        <h2 class="text-secondary"><b>{{ __('Hi, Welcome Back') }} </b></h2>
-                        <p class="f-16 mt-2">{{ __('Enter your credentials to continue') }}</p>
+                        <h2 class="text-primary"><b>{{ __('Welcome to MBC Finance') }} </b></h2>
+                        <p class="f-16 mt-2 text-primary">{{ __('Your trusted partner for instant consumer loans') }}</p>
                     </div>
                 </div>
             </div>
@@ -79,12 +79,12 @@
                 @endif
             @endif
             <div class="d-grid mt-4">
-                <button type="submit" class="btn btn-secondary p-2">{{ __('Sign In') }}</button>
+                <button type="submit" class="btn btn-primary p-2">{{ __('Sign In to MBC Finance') }}</button>
             </div>
             @if ($registerPage == 'on')
                 <hr />
-                <h5 class="d-flex justify-content-center">{{ __("Don't Have An Account?") }} <a class="ms-1 text-secondary"
-                        href="{{ route('register') }}">{{ __('Create an account') }}</a>
+                <h5 class="d-flex justify-content-center text-muted">{{ __("New to MBC Finance?") }} <a class="ms-1 text-primary"
+                        href="{{ route('register') }}">{{ __('Apply for Loan Account') }}</a>
                 </h5>
             @endif
             {{ Form::close() }}

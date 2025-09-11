@@ -16,13 +16,15 @@ use App\Models\Subscription;
 use App\Models\Support;
 use App\Models\User;
 use Carbon\Carbon;
+use App\Http\Controllers\ModernLandingController;
+use Illuminate\Support\Facades\Auth;
 
 class HomeController extends Controller
 {
     public function index()
     {
-        if (\Auth::check()) {
-            if (\Auth::user()->type == 'super admin') {
+        if (Auth::check()) {
+            if (Auth::user()->type == 'super admin') {
                 $result['totalOrganization'] = User::where('type', 'owner')->count();
                 $result['totalSubscription'] = Subscription::count();
                 $result['totalTransaction'] = PackageTransaction::count();
@@ -36,8 +38,8 @@ class HomeController extends Controller
                 return view('dashboard.super_admin', compact('result'));
             } else {
 
-                if (\Auth::user()->type == 'customer') {
-                    $id = \Auth::user()->id;
+                if (Auth::user()->type == 'customer') {
+                    $id = Auth::user()->id;
 
                     $loans = Loan::where('customer', $id)->get();
                     $pendingEMIs = [];
@@ -93,16 +95,8 @@ class HomeController extends Controller
                 header('location:install');
                 die;
             } else {
-
-                $landingPage = getSettingsValByName('landing_page');
-                if ($landingPage == 'on') {
-                    $subscriptions = Subscription::get();
-                    $menus = Page::where('enabled', 1)->get();
-                    $FAQs = FAQ::where('enabled', 1)->get();
-                    return view('layouts.landing', compact('subscriptions', 'menus', 'FAQs'));
-                } else {
-                    return redirect()->route('login');
-                }
+                // Use standalone front page without CMS integration
+                return redirect()->action([\App\Http\Controllers\FrontPageController::class, 'index']);
             }
         }
     }

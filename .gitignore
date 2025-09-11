@@ -1,3 +1,86 @@
-/vendor/srmklive
+# Laravel
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.phpunit.result.cache
+docker-compose.override.yml
+Homestead.json
+Homestead.yaml
+npm-debug.log*
+yarn-error.log*
+
+# IDE
 /.idea
 /.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Storage and uploads (keep structure but ignore content)
+/storage/app/public/*
+!/storage/app/public/.gitkeep
+/storage/framework/cache/*
+!/storage/framework/cache/.gitkeep
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitkeep
+/storage/framework/testing/*
+!/storage/framework/testing/.gitkeep
+/storage/framework/views/*
+!/storage/framework/views/.gitkeep
+/storage/logs/*
+!/storage/logs/.gitkeep
+
+# PWA dependencies
+/LoanApp-PWA/node_modules
+/LoanApp-PWA/dist
+/LoanApp-PWA/.env.local
+/LoanApp-PWA/.env.development.local
+/LoanApp-PWA/.env.test.local
+/LoanApp-PWA/.env.production.local
+
+# FinanceFlow dependencies
+/FinanceFlow/node_modules
+/FinanceFlow/dist
+/FinanceFlow/.env.local
+/FinanceFlow/.env.development.local
+/FinanceFlow/.env.test.local
+/FinanceFlow/.env.production.local
+
+# Sensitive files
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Database
+*.sqlite
+*.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build files
+build/
+dist/
+out/
+
+# Vendor specific
+/vendor/srmklive

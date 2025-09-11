@@ -83,7 +83,10 @@
                             {{ Form::label('purpose_of_loan', __('purpose of loan'), ['class' => 'form-label']) }}
                             {{ Form::textarea('purpose_of_loan', old('purpose_of_loan'), ['class' => 'form-control', 'rows' => '1', 'placeholder' => __('Enter purpose of loan'), 'required' => 'required']) }}
                         </div>
-
+                        <div class="form-group col-md-4 col-lg-4">
+                            {{ Form::label('referral_code', __('Referral Code'), ['class' => 'form-label']) }}
+                            {{ Form::text('referral_code', old('referral_code'), ['class' => 'form-control', 'placeholder' => __('Enter referral code')]) }}
+                        </div>
 
                         <div class="form-group col-md-12 col-lg-12">
                             {{ Form::label('notes', __('notes'), ['class' => 'form-label']) }}

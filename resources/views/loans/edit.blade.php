@@ -79,6 +79,10 @@
                                 'required' => 'required',
                             ]) !!}
                         </div>
+                        <div class="form-group col-md-4 col-lg-4">
+                            {{ Form::label('referral_code', __('Referral Code'), ['class' => 'form-label']) }}
+                            {{ Form::text('referral_code', null, ['class' => 'form-control', 'placeholder' => __('Enter referral code')]) }}
+                        </div>
                         @if (\Auth::user()->type != 'customer')
                             <div class="form-group col-md-4 col-lg-4">
                                 {{ Form::label('status', __('status'), ['class' => 'form-label']) }}

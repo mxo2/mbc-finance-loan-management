@@ -1,0 +1,201 @@
+/* Blue Theme Override - Replace Green with Blue */
+
+/* Primary color overrides */
+.text-success,
+.text-green-500 {
+    color: #1e88e5 !important;
+}
+
+.bg-success,
+.bg-green-500 {
+    background-color: #1e88e5 !important;
+}
+
+.border-success {
+    border-color: #1e88e5 !important;
+}
+
+/* Button overrides */
+.btn-success {
+    background-color: #1e88e5 !important;
+    border-color: #1e88e5 !important;
+}
+
+.btn-success:hover {
+    background-color: #1976d2 !important;
+    border-color: #1976d2 !important;
+}
+
+.btn-outline-success {
+    color: #1e88e5 !important;
+    border-color: #1e88e5 !important;
+}
+
+.btn-outline-success:hover {
+    background-color: #1e88e5 !important;
+    border-color: #1e88e5 !important;
+}
+
+/* Progress bars */
+.progress-bar-success,
+.progress.green .progress-bar {
+    background-color: #1e88e5 !important;
+}
+
+/* Alerts */
+.alert-success {
+    background-color: rgba(30, 136, 229, 0.1) !important;
+    border-color: #1e88e5 !important;
+    color: #1976d2 !important;
+}
+
+/* Links */
+a.text-success:hover {
+    color: #1976d2 !important;
+}
+
+/* Sidebar active states */
+.pc-sidebar .pc-item.active > .pc-link,
+.pc-sidebar .pc-item:focus > .pc-link,
+.pc-sidebar .pc-item:hover > .pc-link {
+    color: #1e88e5 !important;
+}
+
+.pc-sidebar .pc-item.active > .pc-link .pc-micon i,
+.pc-sidebar .pc-item.active > .pc-link .pc-micon svg {
+    color: #1e88e5 !important;
+}
+
+/* Form controls */
+.form-control:focus {
+    border-color: #1e88e5 !important;
+    box-shadow: 0 0 0 0.2rem rgba(30, 136, 229, 0.25) !important;
+}
+
+.form-check-input:checked {
+    background-color: #1e88e5 !important;
+    border-color: #1e88e5 !important;
+}
+
+/* Tables */
+.table-success {
+    background-color: rgba(30, 136, 229, 0.1) !important;
+}
+
+/* Badges */
+.badge-success {
+    background-color: #1e88e5 !important;
+}
+
+/* Cards */
+.card-success .card-header {
+    background-color: #1e88e5 !important;
+    border-color: #1e88e5 !important;
+}
+
+/* Custom green classes to blue */
+.color-block.bg-green-500,
+.bg-green-100,
+.bg-green-200,
+.bg-green-300,
+.bg-green-400,
+.bg-green-600,
+.bg-green-700,
+.bg-green-800,
+.bg-green-900 {
+    background-color: #1e88e5 !important;
+}
+
+.text-green-100,
+.text-green-200,
+.text-green-300,
+.text-green-400,
+.text-green-600,
+.text-green-700,
+.text-green-800,
+.text-green-900 {
+    color: #1e88e5 !important;
+}
+
+/* Animation overrides */
+@keyframes blue-blink-bar {
+    0% { background-color: #1e88e5; }
+    50% { background-color: #1976d2; }
+    100% { background-color: #1e88e5; }
+}
+
+.trafic-card .progress.blue {
+    animation: blue-blink-bar 0.5s linear infinite;
+}
+
+/* Landing page specific */
+.landing-page .btn-secondary {
+    background-color: #1e88e5 !important;
+    border-color: #1e88e5 !important;
+}
+
+.landing-page .btn-secondary:hover {
+    background-color: #1976d2 !important;
+    border-color: #1976d2 !important;
+}
+
+/* Chart colors */
+.chart-success {
+    color: #1e88e5 !important;
+}
+
+/* Icon colors */
+.text-success i,
+.text-success svg {
+    color: #1e88e5 !important;
+}
+
+/* Border utilities */
+.border-left-success {
+    border-left-color: #1e88e5 !important;
+}
+
+.border-right-success {
+    border-right-color: #1e88e5 !important;
+}
+
+.border-top-success {
+    border-top-color: #1e88e5 !important;
+}
+
+.border-bottom-success {
+    border-bottom-color: #1e88e5 !important;
+}
+
+/* Dropdown and navigation */
+.dropdown-item.active {
+    background-color: #1e88e5 !important;
+}
+
+.nav-pills .nav-link.active {
+    background-color: #1e88e5 !important;
+}
+
+/* Custom application specific overrides */
+.loan-status-approved {
+    color: #1e88e5 !important;
+    background-color: rgba(30, 136, 229, 0.1) !important;
+}
+
+.status-success {
+    background-color: #1e88e5 !important;
+    color: white !important;
+}
+
+/* Override any remaining green references */
+[style*="#00c853"] {
+    color: #1e88e5 !important;
+}
+
+[style*="background-color: #00c853"] {
+    background-color: #1e88e5 !important;
+}
+
+[style*="border-color: #00c853"] {
+    border-color: #1e88e5 !important;
+}

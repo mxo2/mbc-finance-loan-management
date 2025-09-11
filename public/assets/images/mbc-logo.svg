@@ -1,0 +1,20 @@
+<svg width="200" height="80" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background bars -->
+  <rect x="10" y="10" width="30" height="60" rx="8" fill="#4a5568"/>
+  <rect x="50" y="10" width="30" height="60" rx="8" fill="#4a5568"/>
+  <rect x="90" y="10" width="30" height="60" rx="8" fill="#4a5568"/>
+  
+  <!-- Blue wave overlay -->
+  <path d="M10 35 Q40 25, 50 35 T90 35 Q110 25, 130 35 V70 Q110 60, 90 70 T50 70 Q40 60, 10 70 Z" fill="#1e88e5"/>
+  
+  <!-- Letters -->
+  <text x="20" y="55" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">M</text>
+  <text x="60" y="55" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">B</text>
+  <text x="100" y="55" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">C</text>
+  
+  <!-- Finance text -->
+  <text x="10" y="85" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#4a5568">finance</text>
+  
+  <!-- Hindi text -->
+  <text x="10" y="100" font-family="Arial, sans-serif" font-size="10" fill="#666">जहाँ जरूरत वहाँ हम</text>
+</svg>

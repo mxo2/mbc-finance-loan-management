@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
@@ -220,15 +221,15 @@ class UserController extends Controller
     public function update(Request $request, $id)
     {
         if (\Auth::user()->can('edit user')) {
-            $user = User::find(decrypt($id));
+            $decryptedId = decrypt($id);
             if (\Auth::user()->type == 'super admin') {
-                $user = User::findOrFail($id);
+                $user = User::findOrFail($decryptedId);
 
                 $validator = \Validator::make(
                     $request->all(),
                     [
                         'name' => 'required',
-                        'email' => 'required|email|unique:users,email,' . $id,
+                        'email' => 'required|email|unique:users,email,' . $decryptedId,
                     ]
                 );
                 if ($validator->fails()) {
@@ -255,13 +256,13 @@ class UserController extends Controller
 
                 return redirect()->route('users.index')->with('success', 'User successfully updated.');
             } else {
-
+                $user = User::find($decryptedId);
 
                 $validator = \Validator::make(
                     $request->all(),
                     [
                         'name' => 'required',
-                        'email' => 'required|email|unique:users,email,' . $id,
+                        'email' => 'required|email|unique:users,email,' . $decryptedId,
                         'role' => 'required',
                     ]
                 );
