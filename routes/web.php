@@ -21,6 +21,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FAQController;
 use App\Http\Controllers\HomePageController;
 use App\Http\Controllers\LoanController;
+use App\Http\Controllers\LoanApplicationController;
 use App\Http\Controllers\LoanCycleController;
 use App\Http\Controllers\LoanTypeController;
 use App\Http\Controllers\ModernLandingController;
@@ -44,12 +45,107 @@ use App\Models\User;
 |
 */
 
+// Main Laravel Web Application Routes
 require __DIR__ . '/auth.php';
 
-// Redirect homepage to React frontend
+// Main website routes - Serve React frontend
 Route::get('/', function () {
-    return redirect('http://localhost:3000');
+    // Check if we have a built frontend to serve
+    $frontendPath = base_path('public/frontend/index.html');
+    
+    // Fallback to development path if production build doesn't exist
+    if (!file_exists($frontendPath)) {
+        $frontendPath = base_path('FinanceFlow/FinanceFlow/dist/public/index.html');
+    }
+    
+    if (file_exists($frontendPath)) {
+        $content = file_get_contents($frontendPath);
+        return response($content, 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0'
+        ]);
+    } else {
+        // Simple fallback without using view() to avoid service container issues
+        $fallbackHtml = '<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBC Finance</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 2rem; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
+        .btn { padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; }
+        .btn:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 MBC Finance</h1>
+        <p>Welcome to our Financial Services Platform</p>
+        <div class="links">
+            <a href="/dashboard" class="btn">Admin Dashboard</a>
+            <a href="/loan" class="btn">Loan Application</a>
+            <a href="/login" class="btn">Login</a>
+            <a href="/register" class="btn">Register</a>
+        </div>
+        <p style="margin-top: 2rem; text-align: center; color: #666;">
+            Frontend is being updated. Use the links above to access services.
+        </p>
+    </div>
+</body>
+</html>';
+        
+        return response($fallbackHtml, 200, [
+            'Content-Type' => 'text/html; charset=UTF-8'
+        ]);
+    }
 });
+
+// Serve frontend assets - with fallback to development location
+Route::get('/assets/{file}', function ($file) {
+    // Try production location first
+    $assetPath = base_path('public/frontend/assets/' . $file);
+    
+    // Fallback to development location
+    if (!file_exists($assetPath)) {
+        $assetPath = base_path('FinanceFlow/FinanceFlow/dist/public/assets/' . $file);
+    }
+    
+    if (file_exists($assetPath)) {
+        $extension = pathinfo($file, PATHINFO_EXTENSION);
+        $mimeType = match($extension) {
+            'js' => 'application/javascript',
+            'css' => 'text/css',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'svg' => 'image/svg+xml',
+            'woff', 'woff2' => 'font/woff2',
+            'ttf' => 'font/ttf',
+            default => 'application/octet-stream'
+        };
+        
+        return response(file_get_contents($assetPath))
+            ->header('Content-Type', $mimeType)
+            ->header('Cache-Control', 'public, max-age=31536000');
+    }
+    
+    abort(404);
+})->where('file', '.*');
+
+// PWA Routes - Handled by React application
+Route::prefix('pwa')->group(function () {
+    Route::get('{any}', function () {
+        return file_get_contents(public_path('pwa/index.html'));
+    })->where('any', '.*');
+});
+
+// Frontend homepage route
+Route::get('/frontend', [App\Http\Controllers\FrontPageController::class, 'index'])->name('frontend.homepage');
 
 Route::post('/apply', [App\Http\Controllers\FrontPageController::class, 'applyLoan'])->name('front.apply')->middleware(
     [
@@ -345,14 +441,39 @@ Route::group(
         ],
     ],
     function () {
-        Route::resource('loan', LoanController::class);
+        // Restore proper customer/admin separation for main loan route
+        Route::get('loan', [LoanController::class, 'index'])->name('loan.index');
+        
+        // Keep other loan management routes for admins
+        Route::get('loan/create', [LoanController::class, 'create'])->name('loan.create');
+        Route::post('loan', [LoanController::class, 'store'])->name('loan.store');
+        Route::get('loan/{loan}', [LoanController::class, 'show'])->name('loan.show');
+        Route::get('loan/{loan}/edit', [LoanController::class, 'edit'])->name('loan.edit');
+        Route::put('loan/{loan}', [LoanController::class, 'update'])->name('loan.update');
+        Route::delete('loan/{loan}', [LoanController::class, 'destroy'])->name('loan.destroy');
+        
         Route::get('loan/apply/{loanTypeId}', [LoanController::class, 'apply'])->name('loan.apply');
         Route::get('loan/{id}/approve', [LoanController::class, 'approve'])->name('loan.approve');
         Route::put('loan/{id}/approve', [LoanController::class, 'updateApproval'])->name('loan.updateApproval');
         Route::get('loan/{id}/reminder', [LoanController::class, 'paymentRemind'])->name('payment.reminder');
         Route::post('loan/{id}/reminder', [LoanController::class, 'paymentRemindData'])->name('payment.sendEmail');
+        
+        // Loan Disbursement Routes
+        Route::get('disbursement', [App\Http\Controllers\DisbursementController::class, 'index'])->name('disbursement.index');
+        Route::get('disbursement/{loan}', [App\Http\Controllers\DisbursementController::class, 'show'])->name('disbursement.show');
+        Route::post('disbursement/{loan}/pay-file-charges', [App\Http\Controllers\DisbursementController::class, 'payFileCharges'])->name('disbursement.pay-file-charges');
+        Route::post('disbursement/{loan}/waive-file-charges', [App\Http\Controllers\DisbursementController::class, 'waiveFileCharges'])->name('disbursement.waive-file-charges');
+        Route::post('disbursement/{loan}/disburse-loan', [App\Http\Controllers\DisbursementController::class, 'disburseLoan'])->name('disbursement.disburse-loan');
     }
 );
+
+// Modern Loan Application Routes
+Route::get('loans/modern', [LoanApplicationController::class, 'index'])->name('loans.modern'); // Keep modern interface accessible
+Route::get('loan/application', [LoanApplicationController::class, 'application'])->name('loan.application');
+Route::get('loan/wizard/{loanTypeId}', [LoanApplicationController::class, 'wizard'])->name('loan.wizard');
+Route::post('loan/calculate-emi', [LoanApplicationController::class, 'calculateEMI'])->name('loan.calculate-emi');
+Route::post('loan/submit-application', [LoanApplicationController::class, 'submitApplication'])->name('loan.submit-application');
+Route::post('loan/submit-legacy-application', [LoanApplicationController::class, 'submitLegacyApplication'])->middleware('auth')->name('loan.submit-legacy-application');
 
 //-------------------------------Loan Cycles-------------------------------------------
 Route::resource('loan-cycle', LoanCycleController::class)->middleware(
@@ -403,25 +524,30 @@ Route::resource('repayment', RepaymentController::class)->middleware(
     ]
 );
 
-Route::get('repayment/schedule-payment/{id}', [RepaymentController::class, 'schedulesPayment'])->name('schedule.payment');
-Route::get('repayment/schedule-payment-ap/{id}', [RepaymentController::class, 'schedulesPaymentAP'])->name('schedule.payment.ap');
-Route::get('repayment/schedule-payment-status/{id}/{status}', [RepaymentController::class, 'schedulesPaymentStatus'])->name('schedule.payment.status');
-Route::get('schedule/schedule-filter', [RepaymentController::class, 'loanFilter'])->name('schedule.filetr');
+Route::get('repayment/schedule-payment/{id}', [RepaymentController::class, 'schedulesPayment'])->name('schedule.payment')->middleware(['auth', 'XSS']);
+Route::get('repayment/schedule-payment-ap/{id}', [RepaymentController::class, 'schedulesPaymentAP'])->name('schedule.payment.ap')->middleware(['auth', 'XSS']);
+Route::get('repayment/schedule-payment-status/{id}/{status}', [RepaymentController::class, 'schedulesPaymentStatus'])->name('schedule.payment.status')->middleware(['auth', 'XSS']);
+Route::get('schedule/schedule-filter', [RepaymentController::class, 'loanFilter'])->name('schedule.filetr')->middleware(['auth', 'XSS']);
 
 
-Route::post('invoice/{id}/banktransfer/payment', [RepaymentController::class, 'banktransferPayment'])->name('invoice.banktransfer.payment');
-Route::post('invoice/{id}/stripe/payment', [RepaymentController::class, 'stripePayment'])->name('invoice.stripe.payment');
-Route::post('invoice/{id}/paypal', [RepaymentController::class, 'invoicePaypal'])->name('invoice.paypal');
-Route::get('invoice/{id}/paypal/{status}', [RepaymentController::class, 'invoicePaypalStatus'])->name('invoice.paypal.status');
-Route::get('invoice/flutterwave/{id}/{tx_ref}', [RepaymentController::class, 'invoiceFlutterwave'])->name('invoice.flutterwave');
-Route::post('invoice/{id}/paystack/payment', [RepaymentController::class, 'invoicePaystack'])->name('invoice.paystack.payment');
-Route::get('/invoice/paystack/{pay_id}/{i_id}', [RepaymentController::class, 'invoicePaystackStatus'])->name('invoice.paystack');
+Route::post('invoice/{id}/banktransfer/payment', [RepaymentController::class, 'banktransferPayment'])->name('invoice.banktransfer.payment')->middleware(['auth', 'XSS']);
+Route::post('invoice/{id}/stripe/payment', [RepaymentController::class, 'stripePayment'])->name('invoice.stripe.payment')->middleware(['auth', 'XSS']);
+Route::post('invoice/{id}/paypal', [RepaymentController::class, 'invoicePaypal'])->name('invoice.paypal')->middleware(['auth', 'XSS']);
+Route::get('invoice/{id}/paypal/{status}', [RepaymentController::class, 'invoicePaypalStatus'])->name('invoice.paypal.status')->middleware(['auth', 'XSS']);
+Route::get('invoice/flutterwave/{id}/{tx_ref}', [RepaymentController::class, 'invoiceFlutterwave'])->name('invoice.flutterwave')->middleware(['auth', 'XSS']);
+Route::post('invoice/{id}/paystack/payment', [RepaymentController::class, 'invoicePaystack'])->name('invoice.paystack.payment')->middleware(['auth', 'XSS']);
+Route::get('/invoice/paystack/{pay_id}/{i_id}', [RepaymentController::class, 'invoicePaystackStatus'])->name('invoice.paystack')->middleware(['auth', 'XSS']);
 
 
 
-Route::post('get-loan-installment', [RepaymentController::class, 'getLoanInstallment'])->name('loan.installment');
-Route::get('repayment-schedules', [RepaymentController::class, 'schedules'])->name('repayment.schedules');
-Route::delete('repayment-schedules-destroy/{id}', [RepaymentController::class, 'scheduleDestroy'])->name('repayment.schedules.destroy');
+Route::post('get-loan-installment', [RepaymentController::class, 'getLoanInstallment'])->name('loan.installment')->middleware(['auth', 'XSS']);
+Route::get('repayment-schedules', [RepaymentController::class, 'schedules'])->name('repayment.schedules')->middleware(['auth', 'XSS']);
+Route::delete('repayment-schedules-destroy/{id}', [RepaymentController::class, 'scheduleDestroy'])->name('repayment.schedules.destroy')->middleware(['auth', 'XSS']);
+
+// Redirect for common URL mistakes
+Route::get('repayment-schedule', function() {
+    return redirect()->route('repayment.schedules');
+})->middleware(['auth', 'XSS']);
 
 
 Route::impersonate();

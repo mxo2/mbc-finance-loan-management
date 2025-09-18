@@ -41,7 +41,7 @@
                         
                         <div class="info-item mb-3">
                             <strong>{{ __('Interest Type:') }}</strong><br>
-                            {{ \App\Models\LoanType::$interestType[$loanType->interest_type] }}
+                            {{ \App\Models\LoanType::$interestType[$loanType->interest_type] ?? $loanType->interest_type }}
                         </div>
                         
                         <div class="info-item mb-3">
@@ -51,7 +51,11 @@
                         
                         <div class="info-item mb-3">
                             <strong>{{ __('Late Payment Penalty:') }}</strong><br>
-                            <span class="text-warning">{{ $loanType->penalties }}%</span>
+                            @if($loanType->penalty_type === 'percentage')
+                                <span class="text-warning">{{ $loanType->penalties }}%</span>
+                            @else
+                                <span class="text-warning">₹{{ number_format($loanType->penalties) }}</span>
+                            @endif
                         </div>
                         
                         @if($loanType->notes)
@@ -126,11 +130,34 @@
                         
                         <div class="form-group col-md-12 col-lg-12">
                             {{ Form::label('purpose_of_loan', __('Purpose of Loan'), ['class' => 'form-label']) }}
-                            {{ Form::textarea('purpose_of_loan', null, [
+                            {!! Form::select('purpose_of_loan', [
+                                'Home Renovation' => __('Home Renovation'),
+                                'Debt Consolidation' => __('Debt Consolidation'),
+                                'Medical Expenses' => __('Medical Expenses'),
+                                'Education' => __('Education'),
+                                'Wedding' => __('Wedding'),
+                                'Travel' => __('Travel'),
+                                'Vehicle Purchase' => __('Vehicle Purchase'),
+                                'Business Investment' => __('Business Investment'),
+                                'Emergency Expenses' => __('Emergency Expenses'),
+                                'Appliance Purchase' => __('Appliance Purchase'),
+                                'Other' => __('Other (Please Specify)')
+                            ], null, [
+                                'class' => 'form-control select2',
+                                'required' => 'required',
+                                'id' => 'purpose_of_loan_select',
+                                'placeholder' => __('Select loan purpose')
+                            ]) !!}
+                        </div>
+                        
+                        <!-- Custom purpose field - hidden by default -->
+                        <div class="form-group col-md-12 col-lg-12" id="custom_purpose_field" style="display: none;">
+                            {{ Form::label('custom_purpose', __('Please Specify Other Purpose'), ['class' => 'form-label']) }}
+                            {{ Form::textarea('custom_purpose', null, [
                                 'class' => 'form-control', 
                                 'rows' => '3', 
-                                'placeholder' => __('Please describe the purpose of this loan'), 
-                                'required' => 'required'
+                                'placeholder' => __('Please describe the specific purpose of this loan'),
+                                'id' => 'custom_purpose_textarea'
                             ]) }}
                         </div>
                         
@@ -283,6 +310,25 @@
             $(document).on('click', '.remove_document', function() {
                 $(this).closest('.document_list').remove();
             });
+            
+            // Handle loan purpose dropdown
+            $('#purpose_of_loan_select').change(function() {
+                var selectedPurpose = $(this).val();
+                var customField = $('#custom_purpose_field');
+                var customTextarea = $('#custom_purpose_textarea');
+                
+                if (selectedPurpose === 'Other') {
+                    customField.show();
+                    customTextarea.attr('required', 'required');
+                } else {
+                    customField.hide();
+                    customTextarea.removeAttr('required');
+                    customTextarea.val(''); // Clear the custom text
+                }
+            });
+            
+            // Initialize on page load
+            $('#purpose_of_loan_select').trigger('change');
         });
     </script>
 @endsection

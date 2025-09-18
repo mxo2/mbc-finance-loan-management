@@ -65,8 +65,41 @@
                             {{ Form::number('amount', null, ['class' => 'form-control', 'step' => 0.1, 'placeholder' => __('Enter amount'), 'required' => 'required']) }}
                         </div>
                         <div class="form-group col-md-4 col-lg-4">
-                            {{ Form::label('purpose_of_loan', __('purpose of loan'), ['class' => 'form-label']) }}
-                            {{ Form::textarea('purpose_of_loan', null, ['class' => 'form-control', 'rows' => '1', 'placeholder' => __('Enter purpose of loan'), 'required' => 'required']) }}
+                            {{ Form::label('purpose_of_loan', __('Purpose of Loan'), ['class' => 'form-label']) }}
+                            @php
+                                $predefinedPurposes = [
+                                    'Home Renovation' => __('Home Renovation'),
+                                    'Debt Consolidation' => __('Debt Consolidation'),
+                                    'Medical Expenses' => __('Medical Expenses'),
+                                    'Education' => __('Education'),
+                                    'Wedding' => __('Wedding'),
+                                    'Travel' => __('Travel'),
+                                    'Vehicle Purchase' => __('Vehicle Purchase'),
+                                    'Business Investment' => __('Business Investment'),
+                                    'Emergency Expenses' => __('Emergency Expenses'),
+                                    'Appliance Purchase' => __('Appliance Purchase'),
+                                ];
+                                $currentPurpose = $loan->purpose_of_loan ?? '';
+                                $isCustomPurpose = !in_array($currentPurpose, array_keys($predefinedPurposes));
+                                $selectedValue = $isCustomPurpose ? 'Other' : $currentPurpose;
+                            @endphp
+                            
+                            {!! Form::select('purpose_of_loan', $predefinedPurposes + ['Other' => __('Other (Please Specify)')], $selectedValue, [
+                                'class' => 'form-control select2',
+                                'required' => 'required',
+                                'id' => 'purpose_of_loan_select_edit'
+                            ]) !!}
+                        </div>
+                        
+                        <!-- Custom purpose field for edit form -->
+                        <div class="form-group col-md-4 col-lg-4" id="custom_purpose_field_edit" style="{{ $isCustomPurpose ? '' : 'display: none;' }}">
+                            {{ Form::label('custom_purpose', __('Custom Purpose'), ['class' => 'form-label']) }}
+                            {{ Form::textarea('custom_purpose', $isCustomPurpose ? $currentPurpose : '', [
+                                'class' => 'form-control', 
+                                'rows' => '1', 
+                                'placeholder' => __('Enter custom purpose'),
+                                'id' => 'custom_purpose_textarea_edit'
+                            ]) }}
                         </div>
                         <div class="form-group col-md-4 col-lg-4">
                             {{ Form::label('loan_terms', __('loan terms'), ['class' => 'form-label']) }}
@@ -201,5 +234,24 @@
         $('.document').on('click', '.document_list_remove', function() {
             var id = $(this).data('val');
         });
+        
+        // Handle loan purpose dropdown for edit form
+        $('#purpose_of_loan_select_edit').change(function() {
+            var selectedPurpose = $(this).val();
+            var customField = $('#custom_purpose_field_edit');
+            var customTextarea = $('#custom_purpose_textarea_edit');
+            
+            if (selectedPurpose === 'Other') {
+                customField.show();
+                customTextarea.attr('required', 'required');
+            } else {
+                customField.hide();
+                customTextarea.removeAttr('required');
+                customTextarea.val(''); // Clear the custom text
+            }
+        });
+        
+        // Initialize on page load for edit form
+        $('#purpose_of_loan_select_edit').trigger('change');
     </script>
 @endpush

@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
-import App from './App.tsx'
+import App from './App'
 import './index.css'
 
 // Create a client
@@ -21,7 +21,7 @@ const queryClient = new QueryClient({
 // Register service worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register('/pwa/sw.js')
       .then((registration) => {
         console.log('SW registered: ', registration)
       })
@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename="/pwa">
         <App />
         <Toaster
           position="top-center"

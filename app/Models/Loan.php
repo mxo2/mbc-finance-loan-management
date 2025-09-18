@@ -15,6 +15,13 @@ class Loan extends Model
         'loan_start_date',
         'loan_due_date',
         'amount',
+        'file_charges_amount',
+        'file_charges_status',
+        'file_charges_paid_at',
+        'disbursement_status',
+        'disbursed_at',
+        'disbursement_notes',
+        'disbursed_by',
         'purpose_of_loan',
         'loan_terms',
         'loan_term_period',
@@ -29,10 +36,29 @@ class Loan extends Model
         'draft' => 'Draft',
         'pending' => 'Pending',
         'submitted' => 'Submitted',
-        'under_review' => 'Under Review',
         'approved' => 'Approved',
         'rejected' => 'Rejected',
+        'file_charges_pending' => 'File Charges Pending',
+        'disbursement_pending' => 'Disbursement Pending',
         'disbursed' => 'Disbursed',
+        'active' => 'Active',
+        'closed' => 'Closed',
+    ];
+
+    public static $fileChargesStatus = [
+        'pending' => 'Pending',
+        'paid' => 'Paid',
+        'waived' => 'Waived',
+    ];
+
+    public static $disbursementStatus = [
+        'pending' => 'Pending',
+        'disbursed' => 'Disbursed',
+    ];
+
+    protected $casts = [
+        'file_charges_paid_at' => 'datetime',
+        'disbursed_at' => 'datetime',
     ];
     public static $document_status = [
         'pending' => 'Pending',
@@ -72,5 +98,43 @@ class Loan extends Model
     public function createdByName()
     {
         return $this->hasOne('App\Models\User', 'id', 'created_by');
+    }
+
+    public function disbursements()
+    {
+        return $this->hasMany(LoanDisbursement::class);
+    }
+
+    public function fileChargesPayment()
+    {
+        return $this->hasOne(LoanDisbursement::class)->where('transaction_type', 'file_charges');
+    }
+
+    public function loanAmountTransfer()
+    {
+        return $this->hasOne(LoanDisbursement::class)->where('transaction_type', 'loan_amount');
+    }
+
+    public function disbursedBy()
+    {
+        return $this->hasOne('App\Models\User', 'id', 'disbursed_by');
+    }
+
+    // Helper methods
+    public function canPayFileCharges()
+    {
+        return $this->status === 'approved' && $this->file_charges_status === 'pending';
+    }
+
+    public function canDisburse()
+    {
+        return $this->status === 'approved' && 
+               ($this->file_charges_status === 'paid' || $this->file_charges_status === 'waived') && 
+               $this->disbursement_status === 'pending';
+    }
+
+    public function isDisbursed()
+    {
+        return $this->disbursement_status === 'disbursed';
     }
 }

@@ -106,7 +106,11 @@
                         
                         <div class="info-item mb-2">
                             <strong>{{ __('Penalty:') }}</strong><br>
-                            {{ $loan->loanType->penalties }}%
+                            @if($loan->loanType->penalty_type === 'percentage')
+                                {{ $loan->loanType->penalties }}%
+                            @else
+                                ₹{{ number_format($loan->loanType->penalties) }}
+                            @endif
                         </div>
                     </div>
                 </div>

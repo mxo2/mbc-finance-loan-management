@@ -45,6 +45,7 @@
                                     <th>{{ __('Loan Interest Detail') }}</th>
                                     <th>{{ __('Loan Terms Detail') }}</th>
                                     <th>{{ __('Loan Payment Penalty') }}</th>
+                                    <th>{{ __('File Charges') }}</th>
                                     @if (Gate::check('edit loan type') || Gate::check('delete loan type'))
                                         <th>{{ __('Action') }}</th>
                                     @endif
@@ -60,7 +61,7 @@
                                         </td>
                                         <td>
                                             {{ __('Interest Type') }} :
-                                            {{ \App\Models\LoanType::$interestType[$loanType->interest_type] }} <br>
+                                            {{ \App\Models\LoanType::$interestType[$loanType->interest_type] ?? $loanType->interest_type }} <br>
                                             {{ __('Interest Rate') }} :
                                             {{ $loanType->interest_rate . '% / ' . __('Year') }}
                                         </td>
@@ -68,7 +69,24 @@
                                             {{ __('Loan Term Limit') }} : {{ $loanType->max_loan_term }}
                                             {{ $loanType->loan_term_period }}
                                         </td>
-                                        <td>{{ $loanType->penalties . '%' }}</td>
+                                        <td>
+                                            @if($loanType->penalty_type === 'percentage')
+                                                {{ $loanType->penalties }}%
+                                            @else
+                                                ₹{{ number_format($loanType->penalties) }}
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($loanType->file_charges && $loanType->file_charges > 0)
+                                                @if($loanType->file_charges_type === 'percentage')
+                                                    {{ $loanType->file_charges }}%
+                                                @else
+                                                    ₹{{ number_format($loanType->file_charges) }}
+                                                @endif
+                                            @else
+                                                <span class="text-muted">{{ __('No charges') }}</span>
+                                            @endif
+                                        </td>
                                         @if (Gate::check('edit loan type') || Gate::check('delete loan type'))
                                             <td>
                                                 <div class="cart-action">

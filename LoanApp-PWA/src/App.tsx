@@ -1,5 +1,6 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import EnhancedLoanApplication from './pages/EnhancedLoanApplication'
 
 // Loan Overview Component
 function LoanOverview() {
@@ -10,7 +11,7 @@ function LoanOverview() {
   useEffect(() => {
     const fetchLoans = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/dashboard', {
+        const response = await fetch('/api/dashboard', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -32,7 +33,11 @@ function LoanOverview() {
         }
         
         if (response.ok && data.success) {
-          setLoans(data.loans || [])
+          // Filter to show only active loans (Approved status indicates active loans)
+          const activeLoans = (data.loans || []).filter((loan: any) => 
+            loan.status === 'Approved' || loan.status === 'Active'
+          )
+          setLoans(activeLoans)
         } else {
           setLoans([])
         }
@@ -52,6 +57,27 @@ function LoanOverview() {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     )
+  }
+
+  // Calculate EMI statistics for active loans
+  const calculateLoanStats = (loan: any) => {
+    if (!loan.repayment_schedules || loan.status !== 'Approved') {
+      return null
+    }
+    
+    const schedules = loan.repayment_schedules
+    const totalEMIPaid = schedules
+      .filter((schedule: any) => schedule.status === 'Paid')
+      .reduce((sum: number, schedule: any) => sum + parseFloat(schedule.total_amount || 0), 0)
+    
+    const totalLoanValue = parseFloat(loan.amount || loan.principal || 0)
+    const remainingAmount = parseFloat(loan.pending_amount || loan.outstanding || 0)
+    
+    return {
+      totalLoanValue,
+      totalEMIPaid,
+      remainingAmount
+    }
   }
 
   return (
@@ -100,6 +126,44 @@ function LoanOverview() {
                   <span className="text-gray-600">Due Date:</span>
                   <span className="font-medium">{loan.due_date ? new Date(loan.due_date).toLocaleDateString() : 'N/A'}</span>
                 </div>
+                
+                {/* EMI Statistics for Active Loans */}
+                {(() => {
+                  const stats = calculateLoanStats(loan)
+                  if (stats) {
+                    return (
+                      <div className="mt-4 pt-3 border-t border-gray-100">
+                        <div className="text-sm font-medium text-blue-900 mb-2">EMI Payment Progress</div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Loan Value:</span>
+                            <span className="font-semibold text-blue-900">₹{stats.totalLoanValue.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total EMI Paid:</span>
+                            <span className="font-semibold text-green-600">₹{stats.totalEMIPaid.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Remaining Amount:</span>
+                            <span className="font-semibold text-red-600">₹{stats.remainingAmount.toLocaleString()}</span>
+                          </div>
+                          <div className="mt-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full" 
+                                style={{width: `${((stats.totalEMIPaid / stats.totalLoanValue) * 100).toFixed(1)}%`}}
+                              ></div>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1 text-center">
+                              {((stats.totalEMIPaid / stats.totalLoanValue) * 100).toFixed(1)}% paid
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
               </div>
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <div className="flex space-x-2">
@@ -146,7 +210,7 @@ function RepaymentSchedule() {
     const fetchSchedule = async () => {
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:8000/api/customer/repayment-schedule', {
+        const response = await fetch('/api/customer/repayment-schedule', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -304,7 +368,7 @@ function LoanPage() {
   useEffect(() => {
     const fetchLoanTypes = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/loan-types', {
+        const response = await fetch('/api/loan-types', {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -359,7 +423,7 @@ function LoanPage() {
         employment: 'salaried'
       }
 
-      const response = await fetch('http://localhost:8000/api/apply-loan', {
+      const response = await fetch('/api/apply-loan', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -715,6 +779,9 @@ function LoanApplication() {
   const [selectedLoanType, setSelectedLoanType] = useState<any>(null)
   const [calculatedEMI, setCalculatedEMI] = useState(0)
   const token = localStorage.getItem('auth_token')
+  const navigate = useNavigate()
+  
+  // Note: Temporarily removed auth check for debugging
   
   // Tenure options in months (3-month intervals)
   const tenureOptions = [3, 6, 9, 12, 15, 18, 21, 24, 30, 36, 48, 60, 72, 84, 96]
@@ -745,7 +812,7 @@ function LoanApplication() {
   useEffect(() => {
     const fetchLoanTypes = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/loan-types', {
+        const response = await fetch('/api/loan-types', {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -846,7 +913,7 @@ function LoanApplication() {
         employment: formData.employment
       }
 
-      const response = await fetch('http://localhost:8000/api/apply-loan', {
+      const response = await fetch('/api/apply-loan', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -890,6 +957,17 @@ function LoanApplication() {
       setIsSubmitting(false)
     }
   }
+
+  // Temporarily disabled for debugging - Don't render if not authenticated
+  /*
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+  */
 
   return (
     <div className="min-h-screen bg-blue-50 p-6">
@@ -1126,7 +1204,7 @@ function LoanDetails() {
     const fetchLoanDetails = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`http://localhost:8000/api/customer/loan-details/${loanId}`, {
+        const response = await fetch(`/api/customer/loan-details/${loanId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -1423,7 +1501,7 @@ function UpcomingInstallments() {
   useEffect(() => {
     const fetchInstallments = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/customer/upcoming-installments', {
+        const response = await fetch('/api/customer/upcoming-installments', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -1462,7 +1540,7 @@ function UpcomingInstallments() {
   const handlePayment = async (installment: any) => {
     setPaymentLoading(installment.id)
     try {
-      const response = await fetch('http://localhost:8000/api/customer/pay-installment', {
+      const response = await fetch('/api/customer/pay-installment', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1589,7 +1667,7 @@ function EMICalculator() {
     setLoading(true)
     
     try {
-      const response = await fetch('http://localhost:8000/api/customer/calculate-emi', {
+      const response = await fetch('/api/customer/calculate-emi', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1753,7 +1831,7 @@ function PaymentTracking() {
     const fetchPayments = async () => {
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:8000/api/customer/repayment-schedule', {
+        const response = await fetch('/api/customer/repayment-schedule', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -1993,7 +2071,7 @@ function Login() {
     setMessage('')
 
     try {
-      const response = await fetch('http://localhost:8000/api/login', {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2025,7 +2103,7 @@ function Login() {
         // Store token and user data
         localStorage.setItem('auth_token', data.token)
         localStorage.setItem('user_data', JSON.stringify(data.user))
-        window.location.href = '/dashboard'
+        window.location.href = '/pwa/dashboard'
       } else {
         setMessage(data.message || 'Login failed')
       }
@@ -2138,7 +2216,7 @@ function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:8000/api/dashboard', {
+        const response = await fetch('/api/dashboard', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -2343,7 +2421,7 @@ function Dashboard() {
         <div className="mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <a href="/loan-application" className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow group block">
+            <a href="/pwa/loan-application" className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow group block">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition-colors">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -2361,7 +2439,7 @@ function Dashboard() {
               <p className="text-sm font-medium text-gray-900 text-center">Pay EMI</p>
             </a>
             
-            <a href="/loan-overview" className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow group block">
+            <a href="/pwa/loan-overview" className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow group block">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:bg-purple-200 transition-colors">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -2530,15 +2608,22 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/pwa/dashboard" element={<Dashboard />} />
       <Route path="/loan-overview" element={<LoanOverview />} />
+      <Route path="/pwa/loan-overview" element={<LoanOverview />} />
       <Route path="/repayment-schedule" element={<RepaymentSchedule />} />
-      <Route path="/loan-application" element={<LoanApplication />} />
+      <Route path="/pwa/repayment-schedule" element={<RepaymentSchedule />} />
+      <Route path="/loan-application" element={<EnhancedLoanApplication />} />
+      <Route path="/pwa/loan-application" element={<EnhancedLoanApplication />} />
+      <Route path="/pwa/enhanced-loan-application" element={<EnhancedLoanApplication />} />
         <Route path="/loan" element={<LoanPage />} />
         <Route path="/loan/:loanTypeId" element={<LoanPage />} />
       <Route path="/loan-details/:loanId" element={<LoanDetails />} />
       <Route path="/payment-tracking" element={<PaymentTracking />} />
       <Route path="/upcoming-installments" element={<UpcomingInstallments />} />
       <Route path="/emi-calculator" element={<EMICalculator />} />
+      {/* Catch-all route for any unmatched paths - now uses enhanced wizard */}
+      <Route path="*" element={<EnhancedLoanApplication />} />
     </Routes>
   )
 }

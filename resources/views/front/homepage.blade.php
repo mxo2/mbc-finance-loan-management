@@ -55,8 +55,9 @@
         }
         
         .navbar-brand img {
-            height: 3rem;
+            height: 4.5rem;
             width: auto;
+            max-width: 280px;
         }
         
         .nav-link {

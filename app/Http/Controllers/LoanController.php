@@ -8,7 +8,6 @@ use App\Models\Loan;
 use App\Models\LoanDocument;
 use App\Models\LoanType;
 use App\Models\Notification;
-use App\Models\Repayment;
 use App\Models\RepaymentSchedule;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -150,9 +149,11 @@ class LoanController extends Controller
             } elseif ($loan->loan_term_period == 'years') {
                 $loan->loan_due_date = $startDate->addYears($loan->loan_terms)->format('Y-m-d');
             }
+        } else {
+            // For non-approved status (pending, rejected, etc.), clear the dates
+            $loan->loan_start_date = null;
+            $loan->loan_due_date = null;
         }
-        // For non-approved status, keep existing dates or set to null if not set
-        // This prevents the Jan 1, 1970 issue
         
         $loan->notes = $request->admin_notes;
         $loan->save();
@@ -200,6 +201,7 @@ class LoanController extends Controller
                     [
                         'loan_type' => 'required',
                         'purpose_of_loan' => 'required',
+                        'custom_purpose' => 'required_if:purpose_of_loan,Other',
                         'amount' => 'required|numeric',
                         'loan_term_period' => 'required',
                         'loan_terms' => 'required|numeric',
@@ -240,7 +242,14 @@ class LoanController extends Controller
             $loan->loan_due_date = $request->loan_due_date;
             
             $loan->amount = $request->amount;
-            $loan->purpose_of_loan = $request->purpose_of_loan;
+            
+            // Handle purpose of loan - use custom purpose if "Other" is selected
+            if ($request->purpose_of_loan === 'Other' && !empty($request->custom_purpose)) {
+                $loan->purpose_of_loan = $request->custom_purpose;
+            } else {
+                $loan->purpose_of_loan = $request->purpose_of_loan;
+            }
+            
             $loan->loan_terms = $request->loan_terms;
             $loan->loan_term_period = $request->loan_term_period;
             $loan->status = \Auth::user()->type == 'customer' ? 'pending' : 'draft';
@@ -248,6 +257,13 @@ class LoanController extends Controller
             $loan->referral_code = $request->referral_code;
             $loan->created_by = \Auth::user()->id;
             $loan->parent_id = parentId();
+            
+            // Calculate file charges based on loan type
+            $loanType = LoanType::find($request->loan_type);
+            if ($loanType && $loanType->file_charges > 0) {
+                $loan->file_charges_amount = $loanType->calculateFileCharges($request->amount);
+            }
+            
             $loan->save();
             
             // Handle mandatory documents for customer applications
@@ -425,6 +441,7 @@ class LoanController extends Controller
                     'loan_start_date' => 'required',
                     'loan_due_date' => 'required',
                     'purpose_of_loan' => 'required',
+                    'custom_purpose' => 'required_if:purpose_of_loan,Other',
                     'amount' => 'required',
                     'loan_term_period' => 'required',
                     'loan_terms' => 'required',
@@ -452,7 +469,14 @@ class LoanController extends Controller
             $loan->loan_start_date = $request->loan_start_date;
             $loan->loan_due_date = $request->loan_due_date;
             $loan->amount = $request->amount;
-            $loan->purpose_of_loan = $request->purpose_of_loan;
+            
+            // Handle purpose of loan - use custom purpose if "Other" is selected
+            if ($request->purpose_of_loan === 'Other' && !empty($request->custom_purpose)) {
+                $loan->purpose_of_loan = $request->custom_purpose;
+            } else {
+                $loan->purpose_of_loan = $request->purpose_of_loan;
+            }
+            
             $loan->loan_terms = $request->loan_terms;
             $loan->loan_term_period = $request->loan_term_period;
             $loan->status = $request->status;

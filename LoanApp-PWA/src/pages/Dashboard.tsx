@@ -1,9 +1,39 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../hooks/useAuth'
+import { useQuery } from '@tanstack/react-query'
+import { dashboardAPI } from '../services/api'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 const Dashboard = () => {
   const { user } = useAuth()
+
+  // Fetch dashboard data from API
+  const { data: dashboardData, isLoading, error } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: async () => {
+      const response = await dashboardAPI.getStats()
+      return response.data
+    },
+    enabled: !!user,
+    refetchOnWindowFocus: false,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-red-600 p-6">
+        <p>Failed to load dashboard data. Please try refreshing the page.</p>
+      </div>
+    )
+  }
 
   const quickActions = [
     {
@@ -36,16 +66,17 @@ const Dashboard = () => {
     },
   ]
 
-  const stats = [
+  // Use real data from API if available, otherwise fallback to dummy data
+  const stats = dashboardData?.stats || [
     {
       label: 'Active Loans',
-      value: '2',
+      value: dashboardData?.summary?.activeLoans?.toString() || '0',
       icon: '💰',
       color: 'text-primary-600',
     },
     {
       label: 'Total Borrowed',
-      value: '₹50,000',
+      value: `₹${dashboardData?.summary?.totalAmount ? new Intl.NumberFormat('en-IN').format(dashboardData.summary.totalAmount) : '0'}`,
       icon: '📊',
       color: 'text-success-600',
     },
@@ -55,6 +86,28 @@ const Dashboard = () => {
       icon: '✅',
       color: user?.kyc_status === 'verified' ? 'text-success-600' : 'text-warning-600',
     },
+  ]
+
+  // Use real recent activity data if available
+  const recentActivity = dashboardData?.recentActivity || [
+    {
+      title: 'Loan Application Submitted',
+      description: 'Personal loan application under review',
+      icon: '📝',
+      date: '2 days ago'
+    },
+    {
+      title: 'KYC Verification Completed',
+      description: 'Identity verification successful',
+      icon: '✅',
+      date: '1 week ago'
+    },
+    {
+      title: 'Payment Received',
+      description: 'EMI payment processed successfully',
+      icon: '💰',
+      date: '2 weeks ago'
+    }
   ]
 
   return (
@@ -72,6 +125,19 @@ const Dashboard = () => {
         <p className="text-primary-100">
           Manage your loans and complete your applications from here.
         </p>
+        
+        {/* Next EMI Alert */}
+        {dashboardData?.nextEmi && (
+          <div className="mt-4 p-3 bg-white/10 rounded-lg backdrop-blur">
+            <p className="text-sm text-primary-100">Next EMI Due</p>
+            <p className="font-semibold">
+              ₹{new Intl.NumberFormat('en-IN').format(dashboardData.nextEmi.amount)} on {new Date(dashboardData.nextEmi.due_date).toLocaleDateString('en-IN')}
+            </p>
+            <p className="text-xs text-primary-200">
+              {dashboardData.nextEmi.days_remaining} days remaining • {dashboardData.nextEmi.loan_id}
+            </p>
+          </div>
+        )}
       </motion.div>
 
       {/* Stats */}
@@ -81,7 +147,7 @@ const Dashboard = () => {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="grid grid-cols-1 md:grid-cols-3 gap-4"
       >
-        {stats.map((stat, index) => (
+        {stats.map((stat: any, index: number) => (
           <div key={index} className="card p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -129,41 +195,50 @@ const Dashboard = () => {
       >
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
         <div className="space-y-4">
-          <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-primary-600">📝</span>
+          {recentActivity.map((activity: any, index: number) => (
+            <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                <span className="text-primary-600">{activity.icon}</span>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">{activity.title}</p>
+                <p className="text-sm text-gray-600">{activity.description}</p>
+              </div>
+              <span className="text-sm text-gray-500">{activity.date}</span>
             </div>
-            <div className="flex-1">
-              <p className="font-medium text-gray-900">Loan Application Submitted</p>
-              <p className="text-sm text-gray-600">Personal loan for ₹25,000</p>
-            </div>
-            <span className="text-sm text-gray-500">2 days ago</span>
-          </div>
-          
-          <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-success-100 rounded-full flex items-center justify-center">
-              <span className="text-success-600">✅</span>
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-gray-900">KYC Verification Completed</p>
-              <p className="text-sm text-gray-600">Identity verification successful</p>
-            </div>
-            <span className="text-sm text-gray-500">1 week ago</span>
-          </div>
-          
-          <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-warning-100 rounded-full flex items-center justify-center">
-              <span className="text-warning-600">💰</span>
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-gray-900">Loan Approved</p>
-              <p className="text-sm text-gray-600">Home loan for ₹25,000 approved</p>
-            </div>
-            <span className="text-sm text-gray-500">2 weeks ago</span>
-          </div>
+          ))}
         </div>
       </motion.div>
 
+      {/* Pending Amount Alert */}
+      {dashboardData?.summary?.pendingAmount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="card p-6 bg-orange-50 border-l-4 border-orange-400"
+        >
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-lg font-medium text-orange-800">
+                Outstanding Amount: ₹{new Intl.NumberFormat('en-IN').format(dashboardData.summary.pendingAmount)}
+              </h3>
+              <p className="text-sm text-orange-700">
+                You have pending loan repayments. Please make your payments on time to maintain a good credit score.
+              </p>
+              <Link 
+                to="/loans" 
+                className="text-sm text-orange-600 hover:text-orange-500 font-medium mt-2 inline-block"
+              >
+                View repayment schedule →
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
     </div>
   )

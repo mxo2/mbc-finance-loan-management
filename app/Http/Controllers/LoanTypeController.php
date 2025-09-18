@@ -10,8 +10,13 @@ class LoanTypeController extends Controller
 
     public function index()
     {
-        if (\Auth::user()->can('manage loan type')) {
-            $loanTypes = LoanType::where('parent_id', \Auth::user()->id)->orderBy('id', 'DESC')->get();
+        if (\Auth::user()->can('manage loan type') || \Auth::user()->can('show loan type')) {
+            // If customer, get loan types from parent
+            if (\Auth::user()->type == 'customer') {
+                $loanTypes = LoanType::where('parent_id', \Auth::user()->parent_id)->orderBy('id', 'DESC')->get();
+            } else {
+                $loanTypes = LoanType::where('parent_id', \Auth::user()->id)->orderBy('id', 'DESC')->get();
+            }
             return view('loan_type.index', compact('loanTypes'));
         } else {
             return redirect()->back()->with('error', __('Permission denied.'));
@@ -41,7 +46,10 @@ class LoanTypeController extends Controller
                     'loan_term_period' => 'required',
                     'payment_frequency' => 'required|in:daily,weekly,monthly,yearly',
                     'payment_day' => 'required|integer|min:1|max:31',
+                    'penalty_type' => 'required|in:percentage,fixed',
                     'penalties' => 'required',
+                    'file_charges_type' => 'required|in:percentage,fixed',
+                    'file_charges' => 'required',
                 ]
             );
             if ($validator->fails()) {
@@ -61,7 +69,10 @@ class LoanTypeController extends Controller
             $loanType->payment_frequency = $request->payment_frequency;
             $loanType->payment_day = $request->payment_day;
             $loanType->auto_start_date = $request->has('auto_start_date') ? 1 : 0;
+            $loanType->penalty_type = $request->penalty_type;
             $loanType->penalties = $request->penalties;
+            $loanType->file_charges_type = $request->file_charges_type;
+            $loanType->file_charges = $request->file_charges;
             $loanType->status = 1;
             $loanType->notes = $request->notes;
             $loanType->parent_id = parentId();
@@ -77,8 +88,12 @@ class LoanTypeController extends Controller
 
     public function show($id)
     {
-        $loanType=LoanType::find(decrypt($id));
-        return view('loan_type.show',compact('loanType'));
+        if (\Auth::user()->can('manage loan type') || \Auth::user()->can('show loan type')) {
+            $loanType=LoanType::find(decrypt($id));
+            return view('loan_type.show',compact('loanType'));
+        } else {
+            return redirect()->back()->with('error', __('Permission denied.'));
+        }
     }
 
 
@@ -106,7 +121,10 @@ class LoanTypeController extends Controller
                     'loan_term_period' => 'required',
                     'payment_frequency' => 'required|in:daily,weekly,monthly,yearly',
                     'payment_day' => 'required|integer|min:1|max:31',
+                    'penalty_type' => 'required|in:percentage,fixed',
                     'penalties' => 'required',
+                    'file_charges_type' => 'required|in:percentage,fixed',
+                    'file_charges' => 'required',
                     ]
                 );
                 if ($validator->fails()) {
@@ -126,7 +144,10 @@ class LoanTypeController extends Controller
                 $loanType->payment_frequency = $request->payment_frequency;
                 $loanType->payment_day = $request->payment_day;
                 $loanType->auto_start_date = $request->has('auto_start_date') ? 1 : 0;
+                $loanType->penalty_type = $request->penalty_type;
                 $loanType->penalties = $request->penalties;
+                $loanType->file_charges_type = $request->file_charges_type;
+                $loanType->file_charges = $request->file_charges;
                 $loanType->status = 1;
                 $loanType->notes = $request->notes;
                 $loanType->save();

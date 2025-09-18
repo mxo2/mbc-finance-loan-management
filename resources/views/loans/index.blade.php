@@ -65,8 +65,20 @@
                                         <td>{{ !empty($loan->branch) ? $loan->branch->name : '' }} </td>
                                         <td>{{ !empty($loan->loanType) ? $loan->loanType->type : '' }} </td>
                                         <td>{{ !empty($loan->Customers) ? $loan->Customers->name : '' }} </td>
-                                        <td>{{ dateFormat($loan->loan_start_date) }} </td>
-                                        <td>{{ dateFormat($loan->loan_due_date) }} </td>
+                                        <td>
+                                            @if($loan->status == 'pending' || $loan->status == 'draft')
+                                                <span class="text-muted">{{ __('Pending Approval') }}</span>
+                                            @else
+                                                {{ dateFormat($loan->loan_start_date) }}
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($loan->status == 'pending' || $loan->status == 'draft')
+                                                <span class="text-muted">{{ __('Pending Approval') }}</span>
+                                            @else
+                                                {{ dateFormat($loan->loan_due_date) }}
+                                            @endif
+                                        </td>
                                         <td>{{ priceFormat($loan->amount) }} </td>
                                         <td>{{ $loan->referral_code ?? '-' }} </td>
                                         <td>

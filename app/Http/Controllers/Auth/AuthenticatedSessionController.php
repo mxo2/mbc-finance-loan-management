@@ -20,7 +20,11 @@ class AuthenticatedSessionController extends Controller
         }
 
         $user = \App\Models\User::find(1);
-        \App::setLocale($user->lang);
+        if ($user) {
+            \App::setLocale($user->lang ?? 'en');
+        } else {
+            \App::setLocale('en');
+        }
 
         return view('auth.login');
     }
@@ -38,6 +42,13 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
         $request->session()->regenerate();
         $loginUser = Auth::user();
+        
+        // Determine if this is a PWA request by checking the URL or Referer header
+        $referer = $request->header('Referer');
+        $isPwa = $request->is('pwa/*') || 
+                 (strpos($referer, '/pwa/') !== false) || 
+                 $request->has('source') && $request->input('source') === 'pwa';
+        
         if ($loginUser->is_active == 0) {
             auth()->logout();
             return redirect()->route('login')->with('error', __('Your account is temporarily inactive. Please contact your administrator to reactivate your account.'));
@@ -47,21 +58,21 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('login')->with('error', __('Verification required: Please check your email to verify your account before continuing.'));
         }
         if ($loginUser->type == 'owner') {
-
             if ($loginUser->subscription_expire_date != null && date('Y-m-d') > $loginUser->subscription_expire_date) {
                 assignSubscription(1);
-                return redirect()->intended(RouteServiceProvider::HOME)->with('error', __('Your subscription has ended, and access to premium features is now restricted. To continue using our services without interruption, please renew your plan or upgrade to a higher-tier package.'));
+                return redirect()->intended($isPwa ? '/pwa/' : RouteServiceProvider::HOME)->with('error', __('Your subscription has ended, and access to premium features is now restricted. To continue using our services without interruption, please renew your plan or upgrade to a higher-tier package.'));
             }
         }
         userLoggedHistory();
-        if ($loginUser->type == 'owner') {
-            if ($loginUser->subscription_expire_date != null && date('Y-m-d') > $loginUser->subscription_expire_date) {
-                assignSubscription(1);
-                return redirect()->intended(RouteServiceProvider::HOME)->with('error', __('Your subscription has ended, and access to premium features is now restricted. To continue using our services without interruption, please renew your plan or upgrade to a higher-tier package.'));
-            }
+        
+        // Handle redirection based on user type and source
+        if ($isPwa) {
+            // Redirect to PWA dashboard
+            return redirect('/pwa/');
+        } else {
+            // Redirect to main Laravel app dashboard
+            return redirect()->intended(RouteServiceProvider::HOME);
         }
-
-        return redirect()->intended(RouteServiceProvider::HOME);
     }
 
     public function destroy(Request $request)

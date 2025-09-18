@@ -55,6 +55,7 @@
     <link rel="stylesheet" href="{{ asset('assets/css/style-preset.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/css/landing.css') }}" />
     <link href="{{ asset('css/custom.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/blue-theme-override.css') }}" rel="stylesheet">
     <style>
         .ck.ck-reset_all {
             display: none;

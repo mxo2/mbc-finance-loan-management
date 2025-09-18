@@ -24,6 +24,10 @@ class HomeController extends Controller
     public function index()
     {
         if (Auth::check()) {
+            // Check if this is a PWA route
+            $isPwa = request()->is('pwa/*');
+            $baseUrl = $isPwa ? '/pwa' : '';
+            
             if (Auth::user()->type == 'super admin') {
                 $result['totalOrganization'] = User::where('type', 'owner')->count();
                 $result['totalSubscription'] = Subscription::count();

@@ -9,6 +9,7 @@ use App\Models\DocumentType;
 use App\Models\Loan;
 use App\Models\NoticeBoard;
 use App\Models\Notification;
+use Spatie\Permission\Models\Permission;
 use App\Models\Subscription;
 use App\Models\Twilio;
 use App\Models\User;
@@ -94,6 +95,36 @@ class CustomerController extends Controller
             $customer->parent_id = parentId();
             $customer->save();
             $customer->assignRole($userRole);
+            
+            // Ensure customer has all required permissions (updated to reflect new permission structure)
+            $requiredPermissions = [
+                'manage loan', 
+                'create loan', 
+                'show loan', // Allow viewing loans but not editing/deleting
+                'show loan type', // Allow viewing loan types but not creating/editing/deleting
+                'manage contact',
+                'create contact',
+                'edit contact',
+                'delete contact',
+                'manage note',
+                'create note',
+                'edit note',
+                'delete note',
+                'manage account',
+                'show account',
+                'manage transaction',
+                'manage repayment',
+                'manage account settings',
+                'manage password settings',
+                'manage 2FA settings'
+            ];
+            
+            foreach ($requiredPermissions as $permission) {
+                $permObj = \Spatie\Permission\Models\Permission::where('name', $permission)->first();
+                if ($permObj && !$customer->hasPermissionTo($permission)) {
+                    $customer->givePermissionTo($permObj);
+                }
+            }
 
             if ($request->hasFile('profile')) {
                 $uploadResult = handleFileUpload($request->file('profile'), 'upload/profile/');

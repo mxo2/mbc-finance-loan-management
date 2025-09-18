@@ -1,8 +1,13 @@
 import axios from 'axios'
 
+// Get the API URL from environment or fallback to local
+const apiUrl = typeof import.meta.env.VITE_API_URL === 'string' 
+  ? import.meta.env.VITE_API_URL 
+  : 'https://fix.mbcfinserv.com';
+
 // Create axios instance
 export const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: apiUrl,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -34,7 +39,7 @@ api.interceptors.response.use(
     // Handle 401 errors (unauthorized)
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token')
-      window.location.href = '/login'
+      window.location.href = '/pwa/login'
     }
     
     // Handle network errors
@@ -49,20 +54,20 @@ api.interceptors.response.use(
 // API endpoints
 export const authAPI = {
   login: (credentials: { email: string; password: string }) => 
-    api.post('/login', credentials),
+    api.post('/pwa-login', credentials),
   
   register: (data: { name: string; email: string; password: string; password_confirmation: string; phone?: string }) => 
     api.post('/register', data),
   
-  logout: () => api.post('/logout'),
+  logout: () => api.post('/pwa-logout'),
   
-  getUser: () => api.get('/user'),
+  getUser: () => api.get('/pwa/user'),
   
   updateProfile: (data: any) => api.put('/user/profile', data),
 }
 
 export const loanAPI = {
-  getLoanTypes: () => api.get('/loan-types'),
+  getLoanTypes: () => api.get('/pwa/loan-types'),
   
   applyLoan: (data: FormData) => api.post('/loans', data, {
     headers: {
@@ -70,9 +75,9 @@ export const loanAPI = {
     },
   }),
   
-  getLoans: () => api.get('/loans'),
+  getLoans: () => api.get('/pwa/loans'),
   
-  getLoan: (id: number) => api.get(`/loans/${id}`),
+  getLoan: (id: number) => api.get(`/pwa/loans/${id}`),
   
   uploadDocument: (loanId: number, data: FormData) => 
     api.post(`/loans/${loanId}/documents`, data, {
@@ -99,13 +104,18 @@ export const kycAPI = {
 }
 
 export const dashboardAPI = {
-  getStats: () => api.get('/dashboard/stats'),
+  getStats: () => api.get('/pwa/dashboard'),
   
-  getRecentLoans: () => api.get('/dashboard/recent-loans'),
+  getRecentLoans: () => api.get('/pwa/loans'),
+  
+  getRepaymentSchedule: () => api.get('/pwa/repayment-schedule'),
   
   getNotifications: () => api.get('/notifications'),
   
   markNotificationRead: (id: number) => api.put(`/notifications/${id}/read`),
+  
+  calculateEMI: (data: { amount: number; interest_rate: number; tenure: number }) =>
+    api.post('/pwa/calculate-emi', data),
 }
 
 export default api

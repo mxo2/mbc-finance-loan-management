@@ -161,6 +161,34 @@
     <script src="{{ asset('assets/js/fonts/custom-font.js') }}"></script>
     <script src="{{ asset('assets/js/pcoded.js') }}"></script>
     <script src="{{ asset('assets/js/plugins/feather.min.js') }}"></script>
+    
+    <script>
+        // This script helps detect if the request is coming from PWA
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for PWA in URL
+            const isPwa = window.location.href.indexOf('/pwa/') !== -1;
+            
+            // Check for PWA in referrer
+            const referrerHasPwa = document.referrer.indexOf('/pwa/') !== -1;
+            
+            // Set hidden input for source if it exists
+            const sourceInput = document.getElementById('source-input');
+            if (sourceInput && (isPwa || referrerHasPwa)) {
+                sourceInput.value = 'pwa';
+            }
+            
+            // Also add this info to all forms as a hidden field if not already present
+            document.querySelectorAll('form').forEach(function(form) {
+                if (!form.querySelector('input[name="source"]') && (isPwa || referrerHasPwa)) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'source';
+                    input.value = 'pwa';
+                    form.appendChild(input);
+                }
+            });
+        });
+    </script>
 
     @stack('script-page')
     <script>

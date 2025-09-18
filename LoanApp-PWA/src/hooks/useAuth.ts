@@ -41,7 +41,7 @@ export const useAuth = () => {
     queryFn: async () => {
       if (!token) return null
       try {
-        const response = await api.get('/user')
+        const response = await api.get('/pwa/user')
         return response.data.user
       } catch (error) {
         // If token is invalid, remove it
@@ -57,7 +57,7 @@ export const useAuth = () => {
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
-      const response = await api.post('/login', credentials)
+      const response = await api.post('/pwa-login', credentials)
       return response.data
     },
     onSuccess: (data) => {
@@ -95,7 +95,7 @@ export const useAuth = () => {
   // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await api.post('/logout')
+      await api.post('/pwa-logout')
     },
     onSuccess: () => {
       localStorage.removeItem('auth_token')

@@ -67,7 +67,11 @@
                             <div class="detail-group">
                                 <h6>{{ __('Start Date') }}</h6>
                                 <p class="mb-20">
-                                    {{ dateFormat($loan->loan_start_date) }}
+                                    @if($loan->status == 'pending' || $loan->status == 'draft' || empty($loan->loan_start_date))
+                                        <span class="text-muted">{{ __('Pending Approval') }}</span>
+                                    @else
+                                        {{ dateFormat($loan->loan_start_date) }}
+                                    @endif
                                 </p>
                             </div>
                         </div>
@@ -75,7 +79,11 @@
                             <div class="detail-group">
                                 <h6>{{ __('End Date') }}</h6>
                                 <p class="mb-20">
-                                    {{ dateFormat($loan->loan_due_date) }}
+                                    @if($loan->status == 'pending' || $loan->status == 'draft' || empty($loan->loan_due_date))
+                                        <span class="text-muted">{{ __('Pending Approval') }}</span>
+                                    @else
+                                        {{ dateFormat($loan->loan_due_date) }}
+                                    @endif
                                 </p>
                             </div>
                         </div>

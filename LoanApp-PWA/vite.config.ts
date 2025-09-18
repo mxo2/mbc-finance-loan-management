@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/pwa/',
+  define: {
+    'import.meta.env.VITE_API_URL': JSON.stringify('https://fix.mbcfinserv.com/api')
+  },
   plugins: [
     react(),
     VitePWA({
@@ -16,8 +20,8 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: '/pwa/',
+        start_url: '/pwa/',
         icons: [
           {
             src: 'pwa-192x192.png',

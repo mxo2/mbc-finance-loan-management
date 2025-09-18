@@ -1,68 +1,100 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { useForm } from 'react-hook-form'
-import LoadingSpinner from '../components/LoadingSpinner'
+import React, { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
-interface LoanFormData {
-  loan_type: string
-  amount: number
-  purpose_of_loan: string
-  referral_code?: string
-  aadhaar_card_front: FileList
-  aadhaar_card_back: FileList
-  pan_card: FileList
+interface LoanType {
+  id: number
+  name: string
+  description: string
+  min_loan_amount: number
+  max_loan_amount: number
+  interest_rate: number
+  max_loan_term: number
+  penalty_type: string
+  penalties: number
+  file_charges: number
+}
+
+interface FormData {
+  loanType: LoanType | null
+  amount: string
+  tenure: string
+  purpose: string
+  referralCode: string
+  documents: {
+    aadhaar_front: File | null
+    aadhaar_back: File | null
+    pan_card: File | null
+    income_proof: File | null
+  }
+  monthlyIncome: string
+  employment: string
+  customPurpose: string
 }
 
 const LoanApplication = () => {
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
-  const totalSteps = 3
+  const [loanTypes, setLoanTypes] = useState<LoanType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [formData, setFormData] = useState<FormData>({
+    loanType: null,
+    amount: '200000',
+    tenure: '12',
+    purpose: '',
+    referralCode: '',
+    documents: {
+      aadhaar_front: null,
+      aadhaar_back: null,
+      pan_card: null,
+      income_proof: null
+    },
+    monthlyIncome: '',
+    employment: '',
+    customPurpose: ''
+  })
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-  } = useForm<LoanFormData>()
+  const totalSteps = 6
 
-  const onSubmit = async (data: LoanFormData) => {
-    setIsSubmitting(true)
-    try {
-      // Create FormData for file uploads
-      const formData = new FormData()
-      formData.append('loan_type', data.loan_type)
-      formData.append('amount', data.amount.toString())
-      formData.append('purpose_of_loan', data.purpose_of_loan)
-      if (data.referral_code) {
-        formData.append('referral_code', data.referral_code)
-      }
-      
-      // Append files
-      if (data.aadhaar_card_front[0]) {
-        formData.append('aadhaar_card_front', data.aadhaar_card_front[0])
-      }
-      if (data.aadhaar_card_back[0]) {
-        formData.append('aadhaar_card_back', data.aadhaar_card_back[0])
-      }
-      if (data.pan_card[0]) {
-        formData.append('pan_card', data.pan_card[0])
-      }
-
-      // TODO: Submit to API
-      console.log('Submitting loan application:', formData)
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      alert('Loan application submitted successfully!')
-    } catch (error) {
-      console.error('Error submitting loan application:', error)
-      alert('Error submitting application. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
+  // Calculate EMI
+  const calculateEMI = (principal: number, tenure: number, rate: number) => {
+    const monthlyRate = rate / (12 * 100)
+    const emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / 
+                (Math.pow(1 + monthlyRate, tenure) - 1)
+    return Math.round(emi)
   }
 
+  // Format number for display
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('en-IN').format(num)
+  }
+
+  // Fetch loan types
+  useEffect(() => {
+    const fetchLoanTypes = async () => {
+      try {
+        const token = localStorage.getItem('auth_token')
+        const response = await fetch('/api/loan-types', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setLoanTypes(data.loan_types || [])
+        }
+      } catch (error) {
+        console.error('Error fetching loan types:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchLoanTypes()
+  }, [])
+
+  // Step navigation
   const nextStep = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1)
@@ -75,276 +107,546 @@ const LoanApplication = () => {
     }
   }
 
+  // Handle loan type selection
+  const selectLoanType = (loanType: LoanType) => {
+    setFormData(prev => ({
+      ...prev,
+      loanType,
+      amount: loanType.min_loan_amount.toString()
+    }))
+    nextStep()
+  }
+
+  // Get selected loan type for calculations
+  const selectedLoanType = formData.loanType
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
   return (
-    <div className="max-w-2xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Apply for Loan</h1>
+          <img src="/pwa/logo_mbc.png" alt="MBC Finance" className="h-12 mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Enhanced Loan Application</h1>
           <p className="text-gray-600">Complete your loan application in simple steps</p>
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Indicator */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            {Array.from({ length: totalSteps }, (_, i) => (
-              <div
-                key={i}
-                className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                  i + 1 <= currentStep
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                {i + 1}
-              </div>
-            ))}
+          <div className="flex justify-between items-center mb-4">
+            {Array.from({ length: totalSteps }, (_, i) => {
+              const step = i + 1
+              const isActive = step === currentStep
+              const isCompleted = step < currentStep
+              
+              return (
+                <div key={step} className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    isCompleted 
+                      ? 'bg-green-600 text-white' 
+                      : isActive 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {isCompleted ? '✓' : step}
+                  </div>
+                  <span className={`text-xs mt-2 ${isActive ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+                    {step === 1 && 'Loan Type'}
+                    {step === 2 && 'Amount'}
+                    {step === 3 && 'Tenure'}
+                    {step === 4 && 'EMI'}
+                    {step === 5 && 'Details'}
+                    {step === 6 && 'Review'}
+                  </span>
+                </div>
+              )
+            })}
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${(currentStep / totalSteps) * 100}%` }}
             ></div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="card p-6">
-            {/* Step 1: Basic Information */}
-            {currentStep === 1 && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6"
-              >
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
+        {/* Step Content */}
+        <AnimatePresence mode="wait">
+          {/* Step 1: Loan Type Selection */}
+          {currentStep === 1 && (
+            <motion.div
+              key="step1"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="bg-white rounded-xl shadow-lg p-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Choose Your Loan Type</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {loanTypes.map((loanType) => (
+                  <motion.div
+                    key={loanType.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => selectLoanType(loanType)}
+                    className="border-2 border-gray-200 rounded-lg p-6 cursor-pointer hover:border-blue-500 hover:shadow-md transition-all"
+                  >
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{loanType.name}</h3>
+                    <p className="text-gray-600 mb-4">{loanType.description}</p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Amount Range:</span>
+                        <span className="text-blue-700 font-semibold">
+                          ₹{formatNumber(loanType.min_loan_amount)} - ₹{formatNumber(loanType.max_loan_amount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Interest Rate:</span>
+                        <span className="text-blue-700 font-semibold">{loanType.interest_rate}% p.a.</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Max Tenure:</span>
+                        <span className="text-blue-700 font-semibold">{loanType.max_loan_term} months</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 2: Amount Selection */}
+          {currentStep === 2 && selectedLoanType && (
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="bg-white rounded-xl shadow-lg p-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Select Loan Amount</h2>
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-blue-600 mb-2">
+                    ₹{formatNumber(parseInt(formData.amount))}
+                  </div>
+                  <p className="text-gray-600">
+                    Range: ₹{formatNumber(selectedLoanType.min_loan_amount)} - ₹{formatNumber(selectedLoanType.max_loan_amount)}
+                  </p>
+                </div>
                 
+                <div className="px-4">
+                  <input
+                    type="range"
+                    min={selectedLoanType.min_loan_amount}
+                    max={selectedLoanType.max_loan_amount}
+                    step="1000"
+                    value={formData.amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    selectedLoanType.min_loan_amount,
+                    Math.floor((selectedLoanType.min_loan_amount + selectedLoanType.max_loan_amount) / 2),
+                    selectedLoanType.max_loan_amount
+                  ].map((amount) => (
+                    <button
+                      key={amount}
+                      onClick={() => setFormData(prev => ({ ...prev, amount: amount.toString() }))}
+                      className="py-2 px-4 border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-colors"
+                    >
+                      ₹{formatNumber(amount)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex justify-between mt-8">
+                <button
+                  onClick={prevStep}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={nextStep}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Continue
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 3: Tenure Selection */}
+          {currentStep === 3 && selectedLoanType && (
+            <motion.div
+              key="step3"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="bg-white rounded-xl shadow-lg p-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Choose Loan Tenure</h2>
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-blue-600 mb-2">
+                    {formData.tenure} months
+                  </div>
+                  <p className="text-gray-600">
+                    Maximum allowed: {selectedLoanType.max_loan_term} months
+                  </p>
+                </div>
+                
+                <div className="px-4">
+                  <input
+                    type="range"
+                    min="6"
+                    max={selectedLoanType.max_loan_term}
+                    step="6"
+                    value={formData.tenure}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tenure: e.target.value }))}
+                    className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 gap-4">
+                  {[6, 12, 24, 36].filter(months => months <= selectedLoanType.max_loan_term).map((months) => (
+                    <button
+                      key={months}
+                      onClick={() => setFormData(prev => ({ ...prev, tenure: months.toString() }))}
+                      className="py-2 px-4 border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-colors"
+                    >
+                      {months}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex justify-between mt-8">
+                <button
+                  onClick={prevStep}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={nextStep}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Continue
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 4: EMI Calculation & Repayment */}
+          {currentStep === 4 && selectedLoanType && (
+            <motion.div
+              key="step4"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="bg-white rounded-xl shadow-lg p-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">EMI Calculation</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Loan Summary</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span>Loan Amount:</span>
+                      <span className="font-semibold">₹{formatNumber(parseInt(formData.amount))}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Interest Rate:</span>
+                      <span className="font-semibold">{selectedLoanType.interest_rate}% p.a.</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tenure:</span>
+                      <span className="font-semibold">{formData.tenure} months</span>
+                    </div>
+                    <hr />
+                    <div className="flex justify-between text-lg">
+                      <span className="font-semibold">Monthly EMI:</span>
+                      <span className="font-bold text-blue-600">
+                        ₹{formatNumber(calculateEMI(parseInt(formData.amount), parseInt(formData.tenure), selectedLoanType.interest_rate))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Features</h3>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center">
+                      <span className="text-green-600 mr-2">✓</span>
+                      Quick approval process
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-600 mr-2">✓</span>
+                      Minimal documentation
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-600 mr-2">✓</span>
+                      Competitive interest rates
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-600 mr-2">✓</span>
+                      Flexible repayment options
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex justify-between mt-8">
+                <button
+                  onClick={prevStep}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={nextStep}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Continue
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 5: Loan Details Form */}
+          {currentStep === 5 && (
+            <motion.div
+              key="step5"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="bg-white rounded-xl shadow-lg p-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Loan Details</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Loan Type
+                    Purpose of Loan *
                   </label>
                   <select
-                    {...register('loan_type', { required: 'Please select a loan type' })}
-                    className="input w-full"
+                    value={formData.purpose}
+                    onChange={(e) => setFormData(prev => ({ ...prev, purpose: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
                   >
-                    <option value="">Select loan type</option>
-                    <option value="personal">Personal Loan</option>
-                    <option value="home">Home Loan</option>
-                    <option value="business">Business Loan</option>
-                    <option value="education">Education Loan</option>
+                    <option value="">Select Purpose</option>
+                    <option value="Business">Business</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Medical">Medical</option>
+                    <option value="Education">Education</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Wedding">Wedding</option>
+                    <option value="Home Renovation">Home Renovation</option>
+                    <option value="Other">Other</option>
                   </select>
-                  {errors.loan_type && (
-                    <p className="mt-1 text-sm text-error-600">{errors.loan_type.message}</p>
-                  )}
                 </div>
+
+                {formData.purpose === 'Other' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Specify Purpose *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.customPurpose}
+                      onChange={(e) => setFormData(prev => ({ ...prev, customPurpose: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter custom purpose"
+                      required
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Loan Amount (₹)
+                    Monthly Income *
                   </label>
                   <input
-                    {...register('amount', {
-                      required: 'Please enter loan amount',
-                      min: { value: 1000, message: 'Minimum amount is ₹1,000' },
-                      max: { value: 1000000, message: 'Maximum amount is ₹10,00,000' }
-                    })}
                     type="number"
-                    className="input w-full"
-                    placeholder="Enter amount"
+                    value={formData.monthlyIncome}
+                    onChange={(e) => setFormData(prev => ({ ...prev, monthlyIncome: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter monthly income"
+                    required
                   />
-                  {errors.amount && (
-                    <p className="mt-1 text-sm text-error-600">{errors.amount.message}</p>
-                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Purpose of Loan
+                    Employment Type *
                   </label>
-                  <textarea
-                    {...register('purpose_of_loan', { required: 'Please describe the purpose' })}
-                    className="input w-full h-24 resize-none"
-                    placeholder="Describe the purpose of this loan"
-                  />
-                  {errors.purpose_of_loan && (
-                    <p className="mt-1 text-sm text-error-600">{errors.purpose_of_loan.message}</p>
-                  )}
+                  <select
+                    value={formData.employment}
+                    onChange={(e) => setFormData(prev => ({ ...prev, employment: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Employment</option>
+                    <option value="Salaried">Salaried</option>
+                    <option value="Self-employed">Self-employed</option>
+                    <option value="Business">Business</option>
+                    <option value="Freelancer">Freelancer</option>
+                  </select>
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Referral Code (Optional)
                   </label>
                   <input
-                    {...register('referral_code')}
                     type="text"
-                    className="input w-full"
+                    value={formData.referralCode}
+                    onChange={(e) => setFormData(prev => ({ ...prev, referralCode: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter referral code if any"
                   />
                 </div>
-              </motion.div>
-            )}
-
-            {/* Step 2: Document Upload */}
-            {currentStep === 2 && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6"
-              >
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Document Upload</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Aadhaar Card - Front Side *
-                    </label>
-                    <input
-                      {...register('aadhaar_card_front', { required: 'Aadhaar front is required' })}
-                      type="file"
-                      accept=".jpg,.jpeg,.png,.pdf"
-                      className="input w-full"
-                    />
-                    {errors.aadhaar_card_front && (
-                      <p className="mt-1 text-sm text-error-600">{errors.aadhaar_card_front.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Aadhaar Card - Back Side *
-                    </label>
-                    <input
-                      {...register('aadhaar_card_back', { required: 'Aadhaar back is required' })}
-                      type="file"
-                      accept=".jpg,.jpeg,.png,.pdf"
-                      className="input w-full"
-                    />
-                    {errors.aadhaar_card_back && (
-                      <p className="mt-1 text-sm text-error-600">{errors.aadhaar_card_back.message}</p>
-                    )}
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      PAN Card *
-                    </label>
-                    <input
-                      {...register('pan_card', { required: 'PAN card is required' })}
-                      type="file"
-                      accept=".jpg,.jpeg,.png,.pdf"
-                      className="input w-full"
-                    />
-                    {errors.pan_card && (
-                      <p className="mt-1 text-sm text-error-600">{errors.pan_card.message}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-2">📋 Document Guidelines</h3>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• Upload clear, readable images or PDFs</li>
-                    <li>• Maximum file size: 2MB per document</li>
-                    <li>• Supported formats: JPG, PNG, PDF</li>
-                    <li>• Ensure all text is clearly visible</li>
-                  </ul>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Step 3: Review & Submit */}
-            {currentStep === 3 && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6"
-              >
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Review & Submit</h2>
-                
-                <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-sm text-gray-600">Loan Type:</span>
-                      <p className="font-medium">{watch('loan_type') || 'Not selected'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-600">Amount:</span>
-                      <p className="font-medium">₹{watch('amount')?.toLocaleString() || '0'}</p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <span className="text-sm text-gray-600">Purpose:</span>
-                    <p className="font-medium">{watch('purpose_of_loan') || 'Not provided'}</p>
-                  </div>
-                  
-                  {watch('referral_code') && (
-                    <div>
-                      <span className="text-sm text-gray-600">Referral Code:</span>
-                      <p className="font-medium">{watch('referral_code')}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="font-medium text-green-900 mb-2">✅ What happens next?</h3>
-                  <ul className="text-sm text-green-800 space-y-1">
-                    <li>• Your application will be reviewed within 24 hours</li>
-                    <li>• You'll receive updates via email and SMS</li>
-                    <li>• Additional documents may be requested if needed</li>
-                    <li>• Approved loans are disbursed within 2-3 business days</li>
-                  </ul>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={prevStep}
-                disabled={currentStep === 1}
-                className="btn btn-outline btn-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
+              </div>
               
-              {currentStep < totalSteps ? (
+              <div className="flex justify-between mt-8">
                 <button
-                  type="button"
+                  onClick={prevStep}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <button
                   onClick={nextStep}
-                  className="btn btn-primary btn-md"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  Next
+                  Review Application
                 </button>
-              ) : (
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 6: Review & Submit */}
+          {currentStep === 6 && selectedLoanType && (
+            <motion.div
+              key="step6"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="bg-white rounded-xl shadow-lg p-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Review Your Application</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Loan Details</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Loan Type:</span>
+                      <span className="font-semibold">{selectedLoanType.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Amount:</span>
+                      <span className="font-semibold">₹{formatNumber(parseInt(formData.amount))}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tenure:</span>
+                      <span className="font-semibold">{formData.tenure} months</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Interest Rate:</span>
+                      <span className="font-semibold">{selectedLoanType.interest_rate}% p.a.</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Monthly EMI:</span>
+                      <span className="font-bold text-blue-600">
+                        ₹{formatNumber(calculateEMI(parseInt(formData.amount), parseInt(formData.tenure), selectedLoanType.interest_rate))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Purpose:</span>
+                      <span className="font-semibold">
+                        {formData.purpose === 'Other' ? formData.customPurpose : formData.purpose}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Monthly Income:</span>
+                      <span className="font-semibold">₹{formatNumber(parseInt(formData.monthlyIncome || '0'))}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Employment:</span>
+                      <span className="font-semibold">{formData.employment}</span>
+                    </div>
+                    {formData.referralCode && (
+                      <div className="flex justify-between">
+                        <span>Referral Code:</span>
+                        <span className="font-semibold">{formData.referralCode}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-yellow-800">Important Notice</h3>
+                    <div className="mt-2 text-sm text-yellow-700">
+                      <p>Please review all details carefully before submitting. Once submitted, some details cannot be modified.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-between">
                 <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn btn-primary btn-md"
+                  onClick={prevStep}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
-                  {isSubmitting ? (
-                    <>
-                      <LoadingSpinner size="sm" className="mr-2" />
-                      Submitting...
-                    </>
-                  ) : (
-                    'Submit Application'
-                  )}
+                  Previous
                 </button>
-              )}
-            </div>
-          </div>
-        </form>
-      </motion.div>
+                <button
+                  onClick={() => {
+                    // Handle application submission
+                    alert('Application submitted successfully!')
+                    window.location.href = '/pwa/dashboard'
+                  }}
+                  disabled={submitting}
+                  className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {submitting ? 'Submitting...' : 'Submit Application'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

@@ -40,7 +40,7 @@
                                                 </p>
                                                 <p class="mb-2">
                                                     <strong>{{ __('Interest Type:') }}</strong><br>
-                                                    {{ \App\Models\LoanType::$interestType[$loanType->interest_type] }}
+                                                    {{ \App\Models\LoanType::$interestType[$loanType->interest_type] ?? $loanType->interest_type }}
                                                 </p>
                                                 <p class="mb-2">
                                                     <strong>{{ __('Max Term:') }}</strong><br>
@@ -48,7 +48,11 @@
                                                 </p>
                                                 <p class="mb-2">
                                                     <strong>{{ __('Penalty:') }}</strong><br>
-                                                    {{ $loanType->penalties }}%
+                                                    @if($loanType->penalty_type === 'percentage')
+                                                        {{ $loanType->penalties }}%
+                                                    @else
+                                                        ₹{{ number_format($loanType->penalties) }}
+                                                    @endif
                                                 </p>
                                                 @if($loanType->notes)
                                                     <p class="mb-2">

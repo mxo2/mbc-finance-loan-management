@@ -20,6 +20,9 @@ class LoanType extends Model
         'payment_day',
         'auto_start_date',
         'penalties',
+        'penalty_type',
+        'file_charges',
+        'file_charges_type',
         'status',
         'notes',
         'parent_id',
@@ -31,6 +34,7 @@ class LoanType extends Model
         'fixed_rate'=>'Fixed Rate',
         'reducing_amount'=>'Reducing Amount',
         'flat_rate'=>'Flat Rate',
+        'simple'=>'Simple Interest',
     ];
 
     public static $termPeroid=[
@@ -47,8 +51,36 @@ class LoanType extends Model
         'yearly'=>'Yearly',
     ];
     
+    public static $penaltyType=[
+        'percentage'=>'Percentage (%)',
+        'fixed'=>'Fixed Amount',
+    ];
+    
+    public static $fileChargesType=[
+        'percentage'=>'Percentage (%)',
+        'fixed'=>'Fixed Amount',
+    ];
+    
     public function getPaymentFrequencyLabelAttribute()
     {
         return self::$paymentFrequency[$this->payment_frequency] ?? $this->payment_frequency;
+    }
+    
+    public function getPenaltyTypeLabelAttribute()
+    {
+        return self::$penaltyType[$this->penalty_type] ?? $this->penalty_type;
+    }
+    
+    public function getFileChargesTypeLabelAttribute()
+    {
+        return self::$fileChargesType[$this->file_charges_type] ?? $this->file_charges_type;
+    }
+    
+    public function calculateFileCharges($loanAmount)
+    {
+        if ($this->file_charges_type === 'percentage') {
+            return ($loanAmount * $this->file_charges) / 100;
+        }
+        return $this->file_charges;
     }
 }

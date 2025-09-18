@@ -48,8 +48,8 @@
                                 <tr>
                                     <th>{{ __('Loan No.') }}</th>
                                     <th>{{ __('Payment Date') }}</th>
-                                    <th>{{ __('Principal amount') }}</th>
                                     <th>{{ __('Interest') }}</th>
+                                    <th>{{ __('Principal amount') }}</th>
                                     <th>{{ __('Penality') }}</th>
                                     <th>{{ __('Total Amount') }}</th>
                                     <th>{{ __('Status') }}</th>
@@ -63,8 +63,8 @@
                                     <tr>
                                         <td>{{ $schedule->Loans ? loanPrefix() . $schedule->Loans->loan_id : 0 }} </td>
                                         <td>{{ dateFormat($schedule->due_date) }} </td>
-                                        <td>{{ priceFormat($schedule->installment_amount) }} </td>
                                         <td>{{ priceFormat($schedule->interest) }} </td>
+                                        <td>{{ priceFormat($schedule->installment_amount) }} </td>
                                         <td>{{ $schedule->penality ? priceFormat($schedule->penality) : 0.0 }} </td>
                                         <td>{{ priceFormat($schedule->total_amount) }} </td>
                                         <td>

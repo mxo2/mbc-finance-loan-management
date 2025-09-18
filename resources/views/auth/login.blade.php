@@ -25,7 +25,18 @@
                 </div>
             </div>
 
-            {{ Form::open(['route' => 'login', 'method' => 'post', 'id' => 'loginForm', 'class' => 'login-form']) }}
+            {{ Form::open(['route' => 'custom.login', 'method' => 'post', 'id' => 'loginForm', 'class' => 'login-form']) }}
+            <input type="hidden" name="source" id="source-input" value="{{ request()->is('pwa/*') ? 'pwa' : 'web' }}">
+            <script>
+                // Check if the URL contains '/pwa/' to identify PWA requests
+                if (window.location.href.indexOf('/pwa/') !== -1) {
+                    document.getElementById('source-input').value = 'pwa';
+                }
+                // Also check the referrer URL
+                if (document.referrer.indexOf('/pwa/') !== -1) {
+                    document.getElementById('source-input').value = 'pwa';
+                }
+            </script>
             @if (session('error'))
                 <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
             @endif

@@ -313,6 +313,11 @@ class RepaymentController extends Controller
 
     public function loanFilter(Request $request)
     {
+        // Check if user is authenticated
+        if (!\Auth::check()) {
+            return redirect()->route('login')->with('error', 'Please login to access this page.');
+        }
+
         $dateRange = $request->date;
         $loanID = $request->loan ?? '';
         $startDate = '';

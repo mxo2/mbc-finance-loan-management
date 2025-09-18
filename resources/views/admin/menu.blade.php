@@ -11,7 +11,7 @@
     $ids = parentId();
     $authUser = \App\Models\User::find($ids);
     $subscription = \App\Models\Subscription::find($authUser->subscription);
-    $routeName = \Request::route()->getName();
+    $routeName = \Request::route() ? \Request::route()->getName() : null;
     $pricing_feature_settings = getSettingsValByIdName(1, 'pricing_feature');
 @endphp
 <nav class="pc-sidebar">
@@ -115,6 +115,15 @@
                             </a>
                         </li>
                     @endif
+                    @if (Gate::check('manage loan'))
+                        <li
+                            class="pc-item {{ in_array($routeName, ['disbursement.index', 'disbursement.show']) ? 'active' : '' }}">
+                            <a class="pc-link" href="{{ route('disbursement.index') }}">
+                                <span class="pc-micon"><i data-feather="credit-card"></i></span>
+                                <span class="pc-mtext">{{ __('Loan Disbursement') }}</span>
+                            </a>
+                        </li>
+                    @endif
                     @if (Gate::check('manage repayment'))
                         <li
                             class="pc-item pc-hasmenu {{ in_array($routeName, ['repayment.index', 'repayment.schedules', 'schedule.payment', 'schedule.filetr']) ? 'pc-trigger active' : '' }}">
@@ -202,10 +211,11 @@
                 @endif
 
 
-                @if (Gate::check('manage notification') ||
+                @if (\Auth::user()->type != 'customer' && 
+                        (Gate::check('manage notification') ||
                         Gate::check('manage loan type') ||
                         Gate::check('manage document type') ||
-                        Gate::check('manage account type'))
+                        Gate::check('manage account type')))
                     <li class="pc-item pc-caption">
                         <label>{{ __('System Configuration') }}</label>
                         <i class="ti ti-chart-arcs"></i>
