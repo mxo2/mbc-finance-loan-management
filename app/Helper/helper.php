@@ -38,7 +38,7 @@ if (!function_exists('settingsKeys')) {
             "app_name" => "",
             "theme_mode" => "light",
             "layout_font" => "Roboto",
-            "accent_color" => "preset-6",
+            "accent_color" => "preset-1",
             "color_type" => "preset",
             "custom_color" => "--primary-rgb: 0,0,0",
             "custom_color_code" => "#000000",
@@ -309,6 +309,11 @@ if (!function_exists('settingTimeFormat')) {
 if (!function_exists('dateFormat')) {
     function dateFormat($date)
     {
+        // Handle NULL or empty dates
+        if (empty($date) || is_null($date)) {
+            return '-';
+        }
+        
         $settings = settings();
 
         return date($settings['company_date_format'], strtotime($date));
@@ -328,6 +333,14 @@ if (!function_exists('priceFormat')) {
         $settings = settings();
 
         return $settings['CURRENCY_SYMBOL'] . $price;
+    }
+}
+
+if (!function_exists('currency_format_with_sym')) {
+    function currency_format_with_sym($amount)
+    {
+        $settings = settings();
+        return $settings['CURRENCY_SYMBOL'] . number_format($amount);
     }
 }
 if (!function_exists('parentId')) {
@@ -1208,13 +1221,31 @@ if (!function_exists('RepaymentSchedules')) {
     {
         $principle_amount = $loan->amount;
         $loan_type = $loan->LoanType->interest_type;
-        $interest = $loan->LoanType->interest_rate / 100;
+        $annual_interest_rate = $loan->LoanType->interest_rate / 100;
         $today = date('Y-m-d');
         $due_date = $loan->loan_due_date;
-        $panalty = $loan->LoanType->penalties / 100;
+        
+        // Handle penalty calculation based on type
+        $penalty_type = $loan->LoanType->penalty_type ?? 'percentage';
+        $penalty_value = $loan->LoanType->penalties ?? 0;
+        $penalty_rate = ($penalty_type === 'percentage') ? ($penalty_value / 100) : 0;
+        $fixed_penalty = ($penalty_type === 'fixed') ? $penalty_value : 0;
+        
         $startDate = Carbon::parse($loan->loan_start_date);
         $endDate = Carbon::parse($loan->loan_due_date);
-        $interest_payment = ($principle_amount * $interest);
+        
+        // Calculate time period in years
+        $loan_duration_years = $loan->loan_terms;
+        if ($loan->loan_term_period == 'months') {
+            $loan_duration_years = $loan->loan_terms / 12;
+        } elseif ($loan->loan_term_period == 'weeks') {
+            $loan_duration_years = $loan->loan_terms / 52;
+        } elseif ($loan->loan_term_period == 'days') {
+            $loan_duration_years = $loan->loan_terms / 365;
+        }
+        
+        // Calculate total interest for the entire loan duration (simple interest)
+        $total_interest_payment = ($principle_amount * $annual_interest_rate * $loan_duration_years);
         $dates = [];
 
         if ($loan_type && $loan_type != 'onetime_payment') {
@@ -1280,9 +1311,9 @@ if (!function_exists('RepaymentSchedules')) {
 
 
         if ($loan_type && $loan_type == 'onetime_payment') {
-            $totalPayment = $principle_amount + $interest_payment;
+            $totalPayment = $principle_amount + $total_interest_payment;
             if ($due_date < $today) {
-                $lateFee = ($totalPayment * $panalty);
+                $lateFee = ($penalty_type === 'percentage') ? ($totalPayment * $penalty_rate) : $fixed_penalty;
                 $totalPayment = $totalPayment + $lateFee;
             }
 
@@ -1290,7 +1321,7 @@ if (!function_exists('RepaymentSchedules')) {
                 'loan_id' => $loan->id,
                 'due_date' => $due_date,
                 'installment_amount' => $principle_amount,
-                'interest' => $interest_payment,
+                'interest' => $total_interest_payment,
                 'penality' => isset($lateFee) ? $lateFee : 0,
                 'total_amount' => $totalPayment,
                 'status' => 'Pending',
@@ -1301,14 +1332,15 @@ if (!function_exists('RepaymentSchedules')) {
         if ($loan_type && $loan_type == 'fixed_rate') {
 
             $principalPerInstallment = $principle_amount / $numberOfInstallments;
+            $interestPerInstallment = $total_interest_payment / $numberOfInstallments;
             $principalRemaining = $principle_amount;
-            $totalPayment = $principalPerInstallment + $interest_payment;
+            $totalPayment = $principalPerInstallment + $interestPerInstallment;
             $installments = [];
             foreach ($dates as $key => $value) {
 
                 if ($due_date < $today) {
-                    $lateFee = $principle_amount * $panalty;
-                    $totalPayment = $principalPerInstallment + $lateFee;
+                    $lateFee = ($penalty_type === 'percentage') ? ($principle_amount * $penalty_rate) : $fixed_penalty;
+                    $totalPayment = $principalPerInstallment + $interestPerInstallment + $lateFee;
                 }
                 $principalRemaining -= $principalPerInstallment;
 
@@ -1317,7 +1349,7 @@ if (!function_exists('RepaymentSchedules')) {
                     'loan_id' => $loan->id,
                     'due_date' => $value,
                     'installment_amount' => $principalPerInstallment,
-                    'interest' => $interest_payment,
+                    'interest' => $interestPerInstallment,
                     'total_amount' => $totalPayment,
                     'penality' => isset($lateFee) ? $lateFee : 0,
                     'status' => 'Pending',
@@ -1326,13 +1358,13 @@ if (!function_exists('RepaymentSchedules')) {
             }
         }
         if ($loan_type && $loan_type == 'mortgage_amortization') {
-            $monthlyInterestRate = $interest / 12;
+            $monthlyInterestRate = $annual_interest_rate / 12;
             $totalPayment = $principle_amount * ($monthlyInterestRate * pow(1 + $monthlyInterestRate, $numberOfInstallments)) / (pow(1 + $monthlyInterestRate, $numberOfInstallments) - 1);
             foreach ($dates as $key => $value) {
                 $interest = $principle_amount * $monthlyInterestRate;
                 $installment_amount = $totalPayment - $interest;
                 if ($due_date < $today) {
-                    $lateFee = $installment_amount * $panalty;
+                    $lateFee = ($penalty_type === 'percentage') ? ($installment_amount * $penalty_rate) : $fixed_penalty;
                     $totalPayment = $totalPayment + $lateFee;
                 }
 
@@ -1365,7 +1397,7 @@ if (!function_exists('RepaymentSchedules')) {
                 $interest = $principle_amount * $monthlyInterestRate;
                 $totalPayment = $principalPerInstallment + $interest;
                 if ($due_date < $today) {
-                    $lateFee = $totalPayment * $panalty;
+                    $lateFee = ($penalty_type === 'percentage') ? ($totalPayment * $penalty_rate) : $fixed_penalty;
                     $totalPayment = $totalPayment + $lateFee;
                 }
 
@@ -1394,7 +1426,7 @@ if (!function_exists('RepaymentSchedules')) {
             foreach ($dates as $key => $value) {
 
                 if ($due_date < $today) {
-                    $lateFee = $totalPayment * $panalty;
+                    $lateFee = ($penalty_type === 'percentage') ? ($totalPayment * $penalty_rate) : $fixed_penalty;
                     $totalPayment = $totalPayment + $lateFee;
                 }
                 $principalRemaining -= $principalPerInstallment;

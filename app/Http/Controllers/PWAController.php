@@ -161,8 +161,8 @@ class PWAController extends Controller
                 ->orderBy('due_date', 'asc')
                 ->first();
             
-            // Transform loans data
-            $loansData = $loans->map(function($loan) use ($repaymentSchedules, $repayments) {
+            // Transform loans data - only include active/approved loans for dashboard
+            $loansData = $loans->whereIn('status', ['approved', 'disbursed'])->map(function($loan) use ($repaymentSchedules, $repayments) {
                 $formattedLoanId = '#LON-' . str_pad($loan->loan_id, 4, '0', STR_PAD_LEFT);
                 
                 // Calculate pending amount for this loan
@@ -307,11 +307,10 @@ class PWAController extends Controller
                 $formattedLoanId = '#LON-' . str_pad($loan->loan_id, 4, '0', STR_PAD_LEFT);
                 
                 foreach ($loan->RepaymentSchedules as $schedule) {
-                    $interest = (float) ($schedule->interest ?? 0);
-                    $totalAmount = (float) $schedule->total_amount;
-                    $principalAmount = $schedule->principal_amount ? (float) $schedule->principal_amount : ($totalAmount - $interest);
-                    
-                    $repaymentSchedules[] = [
+                $interest = (float) ($schedule->interest ?? 0);
+                $totalAmount = (float) $schedule->total_amount;
+                $installmentAmount = (float) ($schedule->installment_amount ?? 0);
+                $principalAmount = $installmentAmount > 0 ? $installmentAmount : ($totalAmount - $interest);                    $repaymentSchedules[] = [
                         'id' => $schedule->id,
                         'loan_no' => $formattedLoanId,
                         'payment_date' => $schedule->due_date,
@@ -352,6 +351,78 @@ class PWAController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch repayment schedule: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get repayment schedule for a specific loan
+     */
+    public function getLoanRepaymentSchedule(Request $request, $loanId)
+    {
+        $user = $this->authenticateUser($request);
+        if (!$user['success']) {
+            return response()->json($user, 401);
+        }
+
+        $userData = $user['user'];
+        
+        try {
+            // Get the specific loan for this customer
+            $loan = Loan::where('id', $loanId)
+                ->where('customer', $userData->id)
+                ->with(['RepaymentSchedules', 'loanType'])
+                ->first();
+                
+            if (!$loan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Loan not found'
+                ], 404);
+            }
+            
+            // Get repayment schedules for this specific loan
+            $repaymentSchedules = [];
+            $formattedLoanId = '#LON-' . str_pad($loan->loan_id, 4, '0', STR_PAD_LEFT);
+            
+            foreach ($loan->RepaymentSchedules as $schedule) {
+                $interest = (float) ($schedule->interest ?? 0);
+                $totalAmount = (float) $schedule->total_amount;
+                $installmentAmount = (float) ($schedule->installment_amount ?? 0);
+                $principalAmount = $installmentAmount > 0 ? $installmentAmount : ($totalAmount - $interest);
+                
+                $repaymentSchedules[] = [
+                    'id' => $schedule->id,
+                    'loan_id' => $formattedLoanId,
+                    'loan_database_id' => $loan->id,
+                    'installment_number' => $schedule->installment_number,
+                    'due_date' => $schedule->due_date,
+                    'principal_amount' => $principalAmount,
+                    'interest' => $interest,
+                    'total_amount' => $totalAmount,
+                    'status' => ucfirst($schedule->status ?? 'pending'),
+                    'paid_date' => null, // Column doesn't exist in table
+                    'late_fee' => (float) ($schedule->penality ?? 0),
+                    'days_overdue' => $schedule->due_date ? (new \DateTime($schedule->due_date) < new \DateTime() ? (new \DateTime())->diff(new \DateTime($schedule->due_date))->days : 0) : 0,
+                ];
+            }
+            
+            return response()->json([
+                'success' => true,
+                'schedule' => $repaymentSchedules,
+                'loan' => [
+                    'id' => $loan->id,
+                    'loan_id' => $formattedLoanId,
+                    'amount' => (float) $loan->amount,
+                    'type' => $loan->loanType->type ?? 'Unknown',
+                    'status' => $loan->status
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch loan repayment schedule: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -573,6 +644,105 @@ class PWAController extends Controller
             
         } catch (\Exception $e) {
             return ['success' => false, 'message' => 'Authentication failed: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Process EMI Payment
+     */
+    public function processEMIPayment(Request $request)
+    {
+        $user = $this->authenticateUser($request);
+        if (!$user['success']) {
+            return response()->json($user, 401);
+        }
+
+        $userData = $user['user'];
+        
+        try {
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'schedule_id' => 'required|integer',
+                'payment_method' => 'required|string',
+                'amount' => 'required|numeric|min:0.01'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            
+            // Find the repayment schedule
+            $schedule = \App\Models\RepaymentSchedule::find($request->schedule_id);
+            if (!$schedule) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Repayment schedule not found'
+                ], 404);
+            }
+            
+            // Verify the schedule belongs to this customer's loan
+            $loan = \App\Models\Loan::where('id', $schedule->loan_id)
+                ->where('customer', $userData->id)
+                ->first();
+                
+            if (!$loan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to this repayment schedule'
+                ], 403);
+            }
+            
+            // Check if schedule is already paid
+            if ($schedule->status === 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This EMI has already been paid'
+                ], 400);
+            }
+            
+            // For demo purposes, mark as paid immediately
+            // In production, you would integrate with payment gateway here
+            $schedule->status = 'paid';
+            $schedule->save();
+            
+            // Create a payment record (you may need to create this table)
+            try {
+                \DB::table('loan_payments')->insert([
+                    'loan_id' => $loan->id,
+                    'schedule_id' => $schedule->id,
+                    'customer_id' => $userData->id,
+                    'amount' => $request->amount,
+                    'payment_method' => $request->payment_method,
+                    'payment_date' => now(),
+                    'status' => 'completed',
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            } catch (\Exception $e) {
+                // If loan_payments table doesn't exist, just log it
+                \Log::info('Payment record could not be created: ' . $e->getMessage());
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment processed successfully',
+                'payment' => [
+                    'schedule_id' => $schedule->id,
+                    'amount' => $request->amount,
+                    'payment_method' => $request->payment_method,
+                    'payment_date' => now()->toDateString(),
+                    'status' => 'completed'
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment processing failed: ' . $e->getMessage()
+            ], 500);
         }
     }
 

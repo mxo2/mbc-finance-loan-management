@@ -32,6 +32,10 @@ Route::middleware(['throttle:60,1'])->group(function () {
     
     // Repayment schedules
     Route::get('/pwa/repayment-schedule', [PWAController::class, 'getRepaymentSchedule']);
+    Route::get('/pwa/loans/{loanId}/repayment-schedule', [PWAController::class, 'getLoanRepaymentSchedule']);
+    
+    // EMI Payments
+    Route::post('/pwa/emi/pay', [PWAController::class, 'processEMIPayment']);
     
 });
 

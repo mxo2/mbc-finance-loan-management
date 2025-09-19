@@ -44,6 +44,13 @@ const Dashboard = () => {
       color: 'bg-primary-500',
     },
     {
+      title: 'Pay EMI',
+      description: 'Pay your monthly EMI',
+      icon: '💳',
+      href: '/pwa/pay-emi',
+      color: 'bg-red-500',
+    },
+    {
       title: 'Complete KYC',
       description: 'Verify your identity',
       icon: '🆔',

@@ -549,5 +549,10 @@ Route::get('repayment-schedule', function() {
     return redirect()->route('repayment.schedules');
 })->middleware(['auth', 'XSS']);
 
+// Redirect upcoming-installments to new Pay EMI page
+Route::get('upcoming-installments', function() {
+    return redirect('/pwa/pay-emi');
+})->middleware(['auth', 'XSS']);
+
 
 Route::impersonate();

@@ -1323,6 +1323,122 @@ Route::middleware('auth:sanctum')->get('/customer/profile', function (Request $r
     }
 });
 
+// Pay EMI API Routes
+Route::middleware('auth:sanctum')->get('/user/loans', function (Request $request) {
+    try {
+        $user = $request->user();
+        $loans = DB::table('loans')
+            ->join('loan_types', 'loans.loan_type', '=', 'loan_types.id')
+            ->where('loans.customer', $user->id)
+            ->where('loans.status', 'approved')
+            ->select([
+                'loans.id',
+                'loans.loan_id',
+                'loans.amount',
+                'loans.status',
+                'loans.loan_start_date',
+                'loans.loan_due_date',
+                'loan_types.id as loan_type_id',
+                'loan_types.type as loan_type_name',
+                'loan_types.interest_rate'
+            ])
+            ->get();
+
+        $loansWithTypes = $loans->map(function($loan) {
+            return [
+                'id' => $loan->id,
+                'loan_id' => $loan->loan_id,
+                'amount' => $loan->amount,
+                'status' => $loan->status,
+                'loan_start_date' => $loan->loan_start_date,
+                'loan_due_date' => $loan->loan_due_date,
+                'loanType' => [
+                    'id' => $loan->loan_type_id,
+                    'name' => $loan->loan_type_name,
+                    'interest_rate' => $loan->interest_rate
+                ]
+            ];
+        });
+
+        return response()->json(['loans' => $loansWithTypes]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
+Route::middleware('auth:sanctum')->get('/loans/{loanId}/repayment-schedule', function (Request $request, $loanId) {
+    try {
+        $user = $request->user();
+        
+        // Verify loan belongs to user
+        $loan = DB::table('loans')
+            ->where('id', $loanId)
+            ->where('customer', $user->id)
+            ->first();
+            
+        if (!$loan) {
+            return response()->json(['error' => 'Loan not found'], 404);
+        }
+
+        $schedule = DB::table('repayment_schedules')
+            ->where('loan_id', $loanId)
+            ->orderBy('due_date', 'asc')
+            ->get();
+
+        return response()->json(['schedule' => $schedule]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
+Route::middleware('auth:sanctum')->post('/emi/pay', function (Request $request) {
+    try {
+        $user = $request->user();
+        $scheduleId = $request->input('schedule_id');
+        $paymentMethod = $request->input('payment_method');
+        $amount = $request->input('amount');
+
+        // Verify the schedule belongs to user's loan
+        $schedule = DB::table('repayment_schedules')
+            ->join('loans', 'repayment_schedules.loan_id', '=', 'loans.id')
+            ->where('repayment_schedules.id', $scheduleId)
+            ->where('loans.customer', $user->id)
+            ->where('repayment_schedules.status', 'Pending')
+            ->select('repayment_schedules.*')
+            ->first();
+
+        if (!$schedule) {
+            return response()->json(['error' => 'EMI not found or already paid'], 404);
+        }
+
+        // Update schedule status
+        DB::table('repayment_schedules')
+            ->where('id', $scheduleId)
+            ->update([
+                'status' => 'Paid',
+                'payment_type' => $paymentMethod,
+                'transaction_id' => 'TXN' . time() . rand(1000, 9999),
+                'updated_at' => now()
+            ]);
+
+        // Create repayment record
+        DB::table('repayments')->insert([
+            'loan_id' => $schedule->loan_id,
+            'payment_date' => now()->toDateString(),
+            'principal_amount' => $schedule->installment_amount,
+            'interest' => $schedule->interest,
+            'penality' => $schedule->penality,
+            'total_amount' => $amount,
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Payment successful']);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
 // Get application status (backward compatibility)
 Route::middleware('auth:sanctum')->get('/application-status', function (Request $request) {
     $user = $request->user();

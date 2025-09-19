@@ -62,6 +62,14 @@ const EnhancedLoanApplication = () => {
 
   const totalSteps = 6
 
+  // Generate dynamic title based on loan type and step
+  const getDynamicTitle = () => {
+    if (!formData.loanType) {
+      return 'Loan Application'
+    }
+    return `${formData.loanType.name} Application`
+  }
+
   // Calculate EMI (without file charges)
   const calculateEMI = (principal: number, tenure: number, rate: number) => {
     const monthlyRate = rate / (12 * 100)
@@ -164,6 +172,17 @@ const EnhancedLoanApplication = () => {
     console.log('Selected loan type:', selectedLoanType)
     console.log('Form data:', formData)
   }, [currentStep, selectedLoanType, formData])
+
+  // Update document title based on selected loan type
+  useEffect(() => {
+    const title = getDynamicTitle()
+    document.title = `${title} - MBC Finance`
+    
+    // Cleanup: restore default title when component unmounts
+    return () => {
+      document.title = 'MBC Finance'
+    }
+  }, [formData.loanType])
 
   // File upload handlers
   const handleFileUpload = (file: File | null, documentType: keyof typeof formData.documents) => {
@@ -289,7 +308,7 @@ const EnhancedLoanApplication = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <img src="/pwa/logo_mbc.png" alt="MBC Finance" className="h-12 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Enhanced Loan Application</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{getDynamicTitle()}</h1>
           <p className="text-gray-600">Complete your loan application in simple steps</p>
         </div>
 
