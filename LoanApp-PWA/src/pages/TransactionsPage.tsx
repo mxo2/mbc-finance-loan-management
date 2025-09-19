@@ -26,6 +26,13 @@ export default function TransactionsPage() {
     const fetchTransactions = async () => {
       try {
         setLoading(true)
+        
+        if (!pwaToken) {
+          // Redirect to PWA dashboard if no token
+          window.location.href = '/pwa/dashboard'
+          return
+        }
+        
         const response = await fetch('/api/pwa/transactions', {
           headers: {
             'Authorization': `Bearer ${pwaToken}`,
@@ -51,12 +58,7 @@ export default function TransactionsPage() {
       }
     }
 
-    if (pwaToken) {
-      fetchTransactions()
-    } else {
-      setError('Please login to view transactions')
-      setLoading(false)
-    }
+    fetchTransactions()
   }, [pwaToken])
 
   const filteredTransactions = transactions.filter(transaction => {

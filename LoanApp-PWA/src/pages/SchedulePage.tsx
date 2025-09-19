@@ -24,6 +24,13 @@ export default function SchedulePage() {
     const fetchSchedules = async () => {
       try {
         setLoading(true)
+        
+        if (!pwaToken) {
+          // Redirect to PWA login if no token
+          window.location.href = '/pwa/dashboard'
+          return
+        }
+        
         const response = await fetch('/api/pwa/repayment-schedules', {
           headers: {
             'Authorization': `Bearer ${pwaToken}`,
@@ -49,12 +56,7 @@ export default function SchedulePage() {
       }
     }
 
-    if (pwaToken) {
-      fetchSchedules()
-    } else {
-      setError('Please login to view schedules')
-      setLoading(false)
-    }
+    fetchSchedules()
   }, [pwaToken])
 
   const filteredSchedules = schedules.filter(schedule => {

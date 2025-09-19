@@ -747,6 +747,122 @@ class PWAController extends Controller
     }
 
     /**
+     * Get all repayment schedules for the authenticated user (alias for compatibility)
+     */
+    public function getRepaymentSchedules(Request $request)
+    {
+        return $this->getRepaymentSchedule($request);
+    }
+
+    /**
+     * Get all transactions for the authenticated user
+     */
+    public function getTransactions(Request $request)
+    {
+        $user = $this->authenticateUser($request);
+        if (!$user['success']) {
+            return response()->json($user, 401);
+        }
+
+        $userData = $user['user'];
+
+        try {
+            // Get user's loans
+            $loans = Loan::where('customer', $userData->id)->pluck('id', 'loan_id');
+            
+            if ($loans->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'transactions' => [],
+                    'message' => 'No transactions found'
+                ]);
+            }
+
+            // Get repayment transactions
+            $repayments = Repayment::whereIn('loan_id', $loans->keys())
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Get schedule payments
+            $schedulePayments = RepaymentSchedule::whereIn('loan_id', $loans->keys())
+                ->where('status', 'paid')
+                ->orderBy('due_date', 'desc')
+                ->get();
+
+            $transactions = collect();
+
+            // Add repayment transactions
+            foreach ($repayments as $repayment) {
+                $loanNumber = $loans->flip()[$repayment->loan_id] ?? 'Unknown';
+                
+                $transactions->push([
+                    'id' => 'repayment_' . $repayment->id,
+                    'loan_number' => $loanNumber,
+                    'transaction_date' => $repayment->created_at->toDateString(),
+                    'transaction_type' => 'emi_payment',
+                    'amount' => $repayment->amount,
+                    'payment_method' => $repayment->payment_method ?? 'bank_transfer',
+                    'status' => $repayment->status ?? 'success',
+                    'reference_number' => $repayment->reference ?? 'REP-' . $repayment->id,
+                    'description' => 'EMI Payment'
+                ]);
+            }
+
+            // Add schedule-based payments
+            foreach ($schedulePayments as $schedule) {
+                $loanNumber = $loans->flip()[$schedule->loan_id] ?? 'Unknown';
+                
+                $transactions->push([
+                    'id' => 'schedule_' . $schedule->id,
+                    'loan_number' => $loanNumber,
+                    'transaction_date' => $schedule->due_date,
+                    'transaction_type' => 'emi_payment',
+                    'amount' => $schedule->installment_amount,
+                    'payment_method' => 'bank_transfer',
+                    'status' => 'success',
+                    'reference_number' => 'SCH-' . $schedule->id,
+                    'description' => 'Scheduled EMI Payment'
+                ]);
+            }
+
+            // Add file charges and penalties (if applicable)
+            foreach ($loans as $loanId => $loanNumber) {
+                $loan = Loan::where('loan_id', $loanId)->first();
+                if ($loan && $loan->loan_type) {
+                    $loanType = LoanType::find($loan->loan_type);
+                    if ($loanType && $loanType->file_charges > 0) {
+                        $transactions->push([
+                            'id' => 'file_charge_' . $loan->id,
+                            'loan_number' => $loanId,
+                            'transaction_date' => $loan->created_at->toDateString(),
+                            'transaction_type' => 'file_charge',
+                            'amount' => $loanType->file_charges,
+                            'payment_method' => 'deducted',
+                            'status' => 'success',
+                            'reference_number' => 'FC-' . $loan->id,
+                            'description' => 'Loan Processing Fee'
+                        ]);
+                    }
+                }
+            }
+
+            // Sort transactions by date (newest first)
+            $sortedTransactions = $transactions->sortByDesc('transaction_date')->values();
+
+            return response()->json([
+                'success' => true,
+                'transactions' => $sortedTransactions
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch transactions: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Logout user
      */
     public function logout(Request $request)
